@@ -1,31 +1,21 @@
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth.views import LoginView, LogoutView
-from rest_framework import viewsets, status
+from rest_framework import status, viewsets
 from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework.generics import get_object_or_404
 
-from users.serializers import UserSerializer
 from users.models import User
+from users.serializers import UserSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+    def get_object(self):
+        user_pk = self.kwargs.get("user_pk")
+        return get_object_or_404(self.get_queryset(), pk=user_pk)
 
-class LoginUser(LoginView):
-    form_class = AuthenticationForm
-
-
-class LogoutUser(LogoutView):
-    pass
-
-#
-# class UserLoginAPIView(APIView):
-#     def post(self, request):
-#         return Response("<h1> Login </h1>", status=status.HTTP_200_OK)
-#
-#
-# class UserLogoutAPIView(APIView):
-#     def post(self, request):
-#         return Response('logout', status=status.HTTP_200_OK)
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)

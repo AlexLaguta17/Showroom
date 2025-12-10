@@ -3,9 +3,8 @@ from rest_framework import serializers
 from dealers.models import (
     Car,
     Provider,
-    ProviderCars,
-    ProviderSalesHistory,
-    ProviderDiscount,
+    ProviderCar,
+    ProviderOrder,
 )
 
 
@@ -21,19 +20,13 @@ class ProviderSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class ProviderCarsSerializer(serializers.ModelSerializer):
+class ProviderCarSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProviderCars
+        model = ProviderCar
         fields = "__all__"
 
 
-class ProviderSalesHistorySerializer(serializers.ModelSerializer):
+class ProviderOrderSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProviderSalesHistory
-        fields = "__all__"
-
-
-class ProviderDiscountSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProviderDiscount
+        model = ProviderOrder
         fields = "__all__"
