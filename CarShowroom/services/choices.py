@@ -2,7 +2,6 @@ from django.db import models
 
 
 class UserType(models.TextChoices):
-    NONE = "none"
     CUSTOMER = "customer"
     SHOWROOM = "showroom"
     PROVIDER = "provider"
@@ -15,11 +14,6 @@ class EngineType(models.TextChoices):
     ELECTRIC = "Electric"
 
 
-class Gender(models.TextChoices):
-    M = "Male"
-    F = "Female"
-
-
 class BodyType(models.TextChoices):
     SEDAN = "Sedan"
     WAGON = "Wagon"
@@ -30,3 +24,9 @@ class BodyType(models.TextChoices):
 class TransmissionType(models.TextChoices):
     AUTOMATIC = "Automatic"
     MANUAL = "Manual"
+
+
+class OrderStatus(models.TextChoices):
+    PENDING = "Pending"
+    SOLD = "Sold"
+    BOOKED = "Booked"

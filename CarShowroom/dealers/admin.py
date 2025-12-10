@@ -3,15 +3,11 @@ from django.contrib import admin
 from dealers.models import (
     Car,
     Provider,
-    ProviderCars,
-    ProviderDiscount,
-    ProviderSalesHistory,
+    ProviderCar,
+    ProviderOrder,
 )
 
-
-# Register your models here.
 admin.site.register(Car)
 admin.site.register(Provider)
-admin.site.register(ProviderCars)
-admin.site.register(ProviderDiscount)
-admin.site.register(ProviderSalesHistory)
+admin.site.register(ProviderCar)
+admin.site.register(ProviderOrder)

@@ -1,13 +1,11 @@
-from django.urls import path, include
-from rest_framework import routers
+from django.urls import path
 
-from users.api.v1.views import UserViewSet, LoginUser, LogoutUser
+from users.api.v1.views import UserViewSet
 
-user_router = routers.SimpleRouter()
-user_router.register("", UserViewSet)
+CR_methods = {"get": "list", "post": "create"}
+RUD_methods = {"get": "retrieve", "put": "update", "delete": "destroy"}
 
 urlpatterns = [
-    path("", include(user_router.urls)),
-    path("login/", LoginUser.as_view(), name='login'),
-    path("logout/", LogoutUser.as_view(), name='logout'),
+    path("", UserViewSet.as_view(CR_methods)),
+    path("<int:user_pk>/", UserViewSet.as_view(RUD_methods)),
 ]
