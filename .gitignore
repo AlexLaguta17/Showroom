@@ -39,6 +39,7 @@ pip-delete-this-directory.txt
 #linters
 .black
 .flake8
+.isort.cfg
 pre-commit
 pre-commit-config.yaml
 
