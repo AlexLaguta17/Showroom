@@ -1,9 +1,8 @@
 from django.db import models
-from djmoney.models.fields import MoneyField
 from django_countries.fields import CountryField
-from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
+from django.contrib.auth.models import UserManager, AbstractUser
 
 from services.choices import UserType
 
@@ -23,6 +22,11 @@ class User(AbstractUser):
         decimal_places=2,
         validators=[MinValueValidator(0.00)],
     )
+
+    objects = UserManager()
+
+    USERNAME_FIELD = "username"
+    REQUIRED_FIELDS = ["password", "email"]
 
     def __str__(self):
         return f"{self.user_type}: {self.first_name} {self.last_name}"
