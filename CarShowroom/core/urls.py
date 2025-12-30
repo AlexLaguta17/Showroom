@@ -19,9 +19,17 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include
 from debug_toolbar.toolbar import debug_toolbar_urls
+from rest_framework_simplejwt.views import (
+    TokenVerifyView,
+    TokenRefreshView,
+    TokenObtainPairView,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/v1/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/v1/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path("api/v1/showrooms/", include("car_showrooms.api.v1.urls")),
     path("api/v1/dealers/", include("dealers.api.v1.urls")),
     path("api/v1/users/", include("users.api.v1.urls")),
