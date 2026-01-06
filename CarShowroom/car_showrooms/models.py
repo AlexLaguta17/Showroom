@@ -35,7 +35,7 @@ class CarShowroom(models.Model):
     owner_user = models.OneToOneField(
         "users.User",
         on_delete=models.CASCADE,
-        limit_choices_to={"user_type": UserType.SHOWROOM},
+        limit_choices_to={"type": UserType.SHOWROOM},
     )
 
     def __str__(self):
@@ -69,11 +69,11 @@ class CarShowroomOrder(models.Model):
     car_buyer = models.ForeignKey(
         "users.User",
         on_delete=models.CASCADE,
-        limit_choices_to={"user_type": UserType.SHOWROOM},
+        limit_choices_to={"type": UserType.SHOWROOM},
     )
     car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
-    order_status = models.CharField(
-        choices=OrderStatus.choices, max_length=8, default=OrderStatus.PENDING
+    status = models.CharField(
+        choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING
     )
     sale_date = models.DateField(auto_now_add=True)
     price = models.DecimalField(
@@ -83,4 +83,4 @@ class CarShowroomOrder(models.Model):
     )
 
     def __str__(self):
-        return f"{self.car_buyer} order: {self.car}, status: {self.order_status}"
+        return f"{self.car_buyer} order: {self.car}, status: {self.status}"
