@@ -30,3 +30,7 @@ class DiscountSerializer(serializers.ModelSerializer):
     class Meta:
         model = Discount
         fields = "__all__"
+
+
+class ProviderOrderCancelSerializer(serializers.Serializer):
+    cancel_order = serializers.BooleanField()
