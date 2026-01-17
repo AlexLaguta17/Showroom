@@ -169,3 +169,5 @@ cython_debug/
 
 /static/
 /CarShowroom/.cursor/
+*.md
+/CarShowroom/schema.yml

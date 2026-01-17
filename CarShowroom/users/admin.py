@@ -12,7 +12,7 @@ class CustomUserAdmin(UserAdmin):
                 "classes": ("wide",),
                 "fields": (
                     "email",
-                    "user_type",
+                    "type",
                     "phone_number",
                     "country",
                     "age",
