@@ -11,52 +11,56 @@ from dealers.models import (
 class CarSerializer(serializers.ModelSerializer):
     class Meta:
         model = Car
-        fields = "__all__"
-
-
-class CarWithPriceSerializer(serializers.ModelSerializer):
-    """Serializer for car information with providers and their prices."""
-
-    providers = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Car
-        fields = "__all__"
-
-    @staticmethod
-    def get_providers(obj):
-        """Get all providers that have this car with their prices."""
-        provider_cars = obj.providercar_set.all()
-        providers_data = []
-        for provider_car in provider_cars:
-            providers_data.append(
-                {
-                    "id": provider_car.provider.id,
-                    "name": provider_car.provider.name,
-                    "price": provider_car.price,
-                    "car_quantity": provider_car.car_quantity,
-                    "discount": (
-                        provider_car.discount.percent if provider_car.discount else None
-                    ),
-                }
-            )
-        return providers_data
+        fields = (
+            "id",
+            "engine_type",
+            "transmission_type",
+            "body_type",
+            "engine_volume",
+            "brand",
+            "model",
+            "color",
+            "year",
+        )
 
 
 class ProviderSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Provider
-        fields = "__all__"
+        fields = "id", "name", "year_founded", "owner_user_id", "cars"
+        read_only_fields = ("owner_user_id", "cars")
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+
+        if self.instance is None:
+            if Provider.objects.filter(owner_user_id=user.id).exists():
+                raise serializers.ValidationError({"detail": "User already has one."})
+
+        return attrs
 
 
 class ProviderCarSerializer(serializers.ModelSerializer):
-    car = CarSerializer()
 
     class Meta:
         model = ProviderCar
-        fields = "__all__"
+        fields = "id", "car_quantity", "price", "discount", "car"
 
 
+class UpdateProviderCarSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ProviderCar
+        fields = (
+            "id",
+            "car_quantity",
+            "price",
+            "discount",
+        )
+
+
+# TODO redo everything below
 class ProviderOrderCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a new provider order."""
 

@@ -1,17 +1,25 @@
 from rest_framework.response import Response
 from django.core.exceptions import ValidationError
-from django.core.serializers import get_serializer
 from rest_framework import status, generics, viewsets
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import redirect, get_object_or_404
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from dealers.models import Provider, ProviderOrder
-from car_showrooms.permissions import IsShowroomOwner
+from services.choices import UserType, OrderStatus
+from car_showrooms.mixins import CarShowroomContextMixin
 from car_showrooms.models import Discount, CarShowroom, ShowroomCar, CarShowroomOrder
 from services.order_service import (
     update_provider_order,
     validate_order_status,
     validate_order_creation,
+)
+from car_showrooms.permissions import (
+    IsOrderViewer,
+    IsDiscountOwner,
+    IsCarShowroomOwner,
+    IsShowroomCarOwner,
 )
 from dealers.serializers import (
     ProviderOrderSerializer,
@@ -22,77 +30,86 @@ from car_showrooms.serializers import (
     DiscountSerializer,
     CarShowroomSerializer,
     ShowroomCarSerializer,
-    CarShowroomOrderSerializer,
+    ShowroomOrderSerializer,
+    ShowroomOrderWriteSerializer,
     ProviderOrderCancelSerializer,
 )
 
 
 class ShowroomViewSet(viewsets.ModelViewSet):
-    queryset = CarShowroom.objects.all()
+    queryset = CarShowroom.objects.prefetch_related("cars")
     serializer_class = CarShowroomSerializer
+    permission_classes = (IsCarShowroomOwner,)
 
-    def get_object(self):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        return get_object_or_404(self.get_queryset(), pk=showroom_pk)
+    def perform_create(self, serializer):
+        serializer.save(owner_user_id=self.request.user.id)
 
 
-class ShowroomCarViewSet(viewsets.ModelViewSet):
+class ShowroomCarViewSet(CarShowroomContextMixin, viewsets.ModelViewSet):
     serializer_class = ShowroomCarSerializer
+    permission_classes = (IsShowroomCarOwner,)
 
     def get_queryset(self):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        if showroom_pk is None:
-            return ShowroomCar.objects.none()
-        return ShowroomCar.objects.filter(showroom_id=showroom_pk)
-
-    def get_object(self):
-        car_pk = self.kwargs.get("car_pk")
-        return get_object_or_404(self.get_queryset(), pk=car_pk)
-
-    def perform_create(self, serializer):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        serializer.save(showroom_id=showroom_pk)
+        queryset = ShowroomCar.objects.filter(
+            showroom_id=self.showroom.id
+        ).select_related("car", "discount", "showroom__owner_user")
+        user = self.request.user
+        if user.is_authenticated and self.showroom.owner_user.id == user.id:
+            return queryset
+        return queryset.filter(price__gt=0, car_quantity__gt=0, is_published=True)
 
 
-class ShowroomDiscountViewSet(viewsets.ModelViewSet):
+class ShowroomDiscountViewSet(CarShowroomContextMixin, viewsets.ModelViewSet):
     serializer_class = DiscountSerializer
+    permission_classes = (IsDiscountOwner,)
+
+    def get_queryset(self):
+        return Discount.objects.filter(owner_user_id=self.showroom.owner_user.id)
+
+    def perform_create(self, serializer):
+        serializer.save(owner_user_id=self.request.user.id)
+
+
+class CarShowroomOrderViewSet(viewsets.ModelViewSet):  # TODO Rewrite
+    permission_classes = (IsAuthenticated, IsOrderViewer)
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return ShowroomOrderWriteSerializer
+        return ShowroomOrderSerializer
 
     def get_queryset(self):
         showroom_pk = self.kwargs.get("showroom_pk")
-        if showroom_pk is None:
-            return Discount.objects.none()
-        return Discount.objects.filter(showroomcar__showroom_id=showroom_pk)
+        user = self.request.user
+        qs = CarShowroomOrder.objects.filter(showroom_id=showroom_pk).select_related(
+            "car"
+        )
 
-    def get_object(self):
-        discount_pk = self.kwargs.get("discount_pk")
-        return get_object_or_404(self.get_queryset(), pk=discount_pk)
+        if user.type == UserType.CUSTOMER:
+            return qs.filter(car_buyer_id=user.id)
 
-    def perform_create(self, serializer):
-        serializer.save()
-
-
-class CarShowroomOrderViewSet(viewsets.ModelViewSet):
-    serializer_class = CarShowroomOrderSerializer
-
-    def get_queryset(self):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        if showroom_pk is None:
-            return CarShowroomOrder.objects.none()
-        return CarShowroomOrder.objects.filter(showroom_id=showroom_pk)
-
-    def get_object(self):
-        order_pk = self.kwargs.get("order_pk")
-        return get_object_or_404(self.get_queryset(), pk=order_pk)
+        if user.type == UserType.SHOWROOM:
+            return qs.filter(showroom__owner_user_id=user.id)
+        return CarShowroomOrder.objects.none()
 
     def perform_create(self, serializer):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        serializer.save(showroom_id=showroom_pk)
+        user = self.request.user
+
+        if user.type != UserType.CUSTOMER:
+            raise PermissionDenied("Only customers can create orders")
+        # TODO calculate price with discount and check car's owner (May be in other View with business logic)
+        serializer.save(
+            showroom_id=self.kwargs["showroom_pk"],
+            price=1500,
+            car_buyer_id=user.id,
+            status=OrderStatus.PENDING,
+        )
 
 
-class ShowroomProviderOrderDetailAPIView(generics.GenericAPIView):
+class ShowroomProviderOrderDetailAPIView(generics.GenericAPIView):  # TODO Rewrite
     """Retrieve or update a specific provider order for a showroom."""
 
-    permission_classes = [IsShowroomOwner]
+    permission_classes = [IsCarShowroomOwner]
     serializer_class = ProviderOrderSerializer
 
     def get_serializer_class(self):
@@ -156,7 +173,7 @@ class ShowroomProviderOrderDetailAPIView(generics.GenericAPIView):
 class ShowroomProviderOrderListCreateAPIView(generics.GenericAPIView):
     """List all provider orders for a showroom or create a new provider order."""
 
-    permission_classes = [IsShowroomOwner]
+    permission_classes = [IsCarShowroomOwner]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -220,7 +237,7 @@ class ShowroomProviderOrderCancelAPIView(generics.GenericAPIView):
     """Cancel a showroom provider order."""
 
     serializer_class = ProviderOrderCancelSerializer
-    permission_classes = [IsShowroomOwner]
+    permission_classes = [IsCarShowroomOwner]
 
     def get_queryset(self):
         showroom_pk = self.kwargs.get("showroom_pk")

@@ -1,27 +1,30 @@
 from django.urls import path
 
 from dealers.api.v1.views import (
-    ProviderViewSet,
     CarDetailAPIView,
-    ProviderCarViewSet,
     CarListCreateAPIView,
     ProviderOrderAPIView,
-    ProviderDiscountViewSet,
+    ProviderDetailAPIView,
+    ProviderCarDetailAPIView,
+    ProviderListCreateAPIView,
     ProviderOrderActionAPIView,
+    ProviderCarListCreateAPIView,
+    ProviderDiscountDetailAPIView,
+    ProviderDiscountListCreateAPIView,
 )
 
-CR_methods = {"get": "list", "post": "create"}
-RUD_methods = {"get": "retrieve", "put": "update", "delete": "destroy"}
-
 urlpatterns = [
+    path("", ProviderListCreateAPIView.as_view()),
+    path("<int:pk>/", ProviderDetailAPIView.as_view()),
     path("cars/", CarListCreateAPIView.as_view()),
     path("cars/<int:pk>/", CarDetailAPIView.as_view()),
-    path("", ProviderViewSet.as_view(CR_methods)),
-    path("<int:provider_pk>/", ProviderViewSet.as_view(RUD_methods)),
-    path("<int:provider_pk>/cars/", ProviderCarViewSet.as_view(CR_methods)),
-    path("<int:provider_pk>/cars/<int:car_pk>/", ProviderCarViewSet.as_view(RUD_methods)),
-    path("<int:provider_pk>/discounts/", ProviderDiscountViewSet.as_view(CR_methods)),
-    path("<int:provider_pk>/discounts/<int:discount_pk>/", ProviderDiscountViewSet.as_view(RUD_methods)),
+    path("<int:provider_pk>/cars/", ProviderCarListCreateAPIView.as_view()),
+    path("<int:provider_pk>/cars/<int:pk>/", ProviderCarDetailAPIView.as_view()),
+    path("<int:provider_pk>/discounts/", ProviderDiscountListCreateAPIView.as_view()),
+    path(
+        "<int:provider_pk>/discounts/<int:pk>/",
+        ProviderDiscountDetailAPIView.as_view(),
+    ),
     path(
         "<int:provider_pk>/orders/",
         ProviderOrderAPIView.as_view(),

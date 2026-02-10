@@ -21,7 +21,7 @@ def calculate_order_price(provider_car: ProviderCar, car_quantity: int) -> Decim
         raise ValidationError("ProviderCar price must be set")
 
     unit_price = provider_car.price
-    discount_percent = Decimal("0")
+    discount_percent = Decimal("0")  # TODO remove hardcoding
 
     if provider_car.discount:
         discount_percent = provider_car.discount.percent
@@ -44,13 +44,17 @@ def validate_balance(user_balance: Decimal, required_amount: Decimal) -> None:
         raise ValidationError("Insufficient balance")
 
 
-def validate_order_status(order: ProviderOrder, expected_status: str = "Pending") -> None:
+def validate_order_status(
+    order: ProviderOrder, expected_status: str = "Pending"  # TODO rm hardcoding
+) -> None:
     """Validate that order has the expected status."""
     if order.status != expected_status:
         raise ValidationError(f"Order is not in {expected_status} status")
 
 
-def validate_order_creation(provider: Provider, car_id: int, car_quantity: int) -> Decimal:
+def validate_order_creation(
+    provider: Provider, car_id: int, car_quantity: int
+) -> Decimal:
     """Validate order creation requirements and calculate total price."""
     from django.shortcuts import get_object_or_404
 
@@ -71,7 +75,7 @@ def complete_order(order: ProviderOrder) -> None:
     from django.db import transaction
     from django.shortcuts import get_object_or_404
 
-    validate_order_status(order, "Pending")
+    validate_order_status(order, "Pending")  # TODO rm
 
     provider = order.provider
     showroom = order.showroom
@@ -97,16 +101,16 @@ def complete_order(order: ProviderOrder) -> None:
         showroom_car.car_quantity += order.car_quantity
         showroom_car.save()
 
-        order.status = "Completed"
+        order.status = "Completed"  # TODO rm
         order.save()
 
 
-def _approve_order(order: ProviderOrder) -> Response:
+def _approve_order(order: ProviderOrder) -> Response:  # TODO: Rename
     """Approve and complete an order."""
     try:
         complete_order(order)
 
-        return Response(
+        return Response(  # TODO rewrite without Response
             {
                 "id": order.id,
                 "order_status": order.status,
@@ -119,14 +123,16 @@ def _approve_order(order: ProviderOrder) -> Response:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def _reject_order(order: ProviderOrder) -> Response:
+def _reject_order(order: ProviderOrder) -> Response:  # TODO Rename
     """Reject an order."""
     try:
-        validate_order_status(order, "Pending")
+        validate_order_status(order, "Pending")  # TODO no hardcoding
     except ValidationError as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
+        )  # TODO rewrite without Response
 
-    order.status = "Rejected"
+    order.status = "Rejected"  # TODO rm hardcoding
     order.save()
 
     return Response(
@@ -141,7 +147,7 @@ def _reject_order(order: ProviderOrder) -> Response:
 
 def update_provider_order(order: ProviderOrder, car, car_quantity: int) -> None:
     """Update a provider order with new car and/or quantity."""
-    validate_order_status(order, "Pending")
+    validate_order_status(order, "Pending")  # TODO rm hardcoding
 
     if car != order.car or car_quantity != order.car_quantity:
         total_price = validate_order_creation(
