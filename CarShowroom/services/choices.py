@@ -28,5 +28,8 @@ class TransmissionType(models.TextChoices):
 
 class OrderStatus(models.TextChoices):
     PENDING = "Pending"
+    COMPLETED = "Completed"
+    REJECTED = "Rejected"
+    CANCELLED = "Cancelled"
     SOLD = "Sold"
     BOOKED = "Booked"

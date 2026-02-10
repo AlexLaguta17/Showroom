@@ -9,6 +9,21 @@ from dealers.models import Car
 from services.choices import UserType, OrderStatus
 
 
+class CarShowroom(models.Model):
+    """Model of car showroom"""
+
+    name = models.CharField(max_length=100)
+    cars = models.ManyToManyField("dealers.Car", through="ShowroomCar")
+    owner_user = models.OneToOneField(
+        "users.User",
+        on_delete=models.CASCADE,
+        limit_choices_to={"type": UserType.SHOWROOM},
+    )
+
+    def __str__(self):
+        return f"{self.name}"
+
+
 class Discount(models.Model):
     """Model for description discount"""
 
@@ -20,22 +35,15 @@ class Discount(models.Model):
         max_digits=4,
         decimal_places=2,
         validators=[MinValueValidator(0.00), MaxValueValidator(100.00)],
-        default=0.0,
+        blank=False,
+        null=False,
     )
-
-    def __str__(self):
-        return f"{self.name}"
-
-
-class CarShowroom(models.Model):
-    """Model of car showroom"""
-
-    name = models.CharField(max_length=100)
-    cars = models.ManyToManyField("dealers.Car", through="ShowroomCar")
-    owner_user = models.OneToOneField(
+    owner_user = models.ForeignKey(
         "users.User",
         on_delete=models.CASCADE,
-        limit_choices_to={"user_type": UserType.SHOWROOM},
+        limit_choices_to={"type": (UserType.SHOWROOM, UserType.PROVIDER)},
+        related_name="discounts",
+        related_query_name="discount",
     )
 
     def __str__(self):
@@ -57,6 +65,7 @@ class ShowroomCar(models.Model):
         validators=[MinValueValidator(0.00)],
         default=0.0,
     )
+    is_published = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.showroom}'s car: {self.car}"
@@ -69,11 +78,11 @@ class CarShowroomOrder(models.Model):
     car_buyer = models.ForeignKey(
         "users.User",
         on_delete=models.CASCADE,
-        limit_choices_to={"user_type": UserType.SHOWROOM},
+        limit_choices_to={"type": UserType.CUSTOMER},
     )
-    car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
-    order_status = models.CharField(
-        choices=OrderStatus.choices, max_length=8, default=OrderStatus.PENDING
+    car = models.ForeignKey("ShowroomCar", on_delete=models.CASCADE)
+    status = models.CharField(
+        choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING
     )
     sale_date = models.DateField(auto_now_add=True)
     price = models.DecimalField(
@@ -83,4 +92,4 @@ class CarShowroomOrder(models.Model):
     )
 
     def __str__(self):
-        return f"{self.car_buyer} order: {self.car}, status: {self.order_status}"
+        return f"{self.car_buyer} order: {self.car}, status: {self.status}"

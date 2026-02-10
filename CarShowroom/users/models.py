@@ -11,7 +11,7 @@ from services.choices import UserType
 class User(AbstractUser):
     """Extended AbstractUser for realize roles of UserType.choices"""
 
-    user_type = models.CharField(
+    type = models.CharField(
         choices=UserType.choices, max_length=8, default=UserType.CUSTOMER
     )
     phone_number = PhoneNumberField(null=True, unique=True)
@@ -38,4 +38,4 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user_type}: {self.first_name} {self.last_name}"
+        return f"{self.type}: {self.first_name} {self.last_name}"

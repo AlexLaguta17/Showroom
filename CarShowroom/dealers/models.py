@@ -60,7 +60,7 @@ class Provider(models.Model):
     owner_user = models.OneToOneField(
         "users.User",
         on_delete=models.CASCADE,
-        limit_choices_to={"user_type": UserType.PROVIDER},
+        limit_choices_to={"type": UserType.PROVIDER},
     )
 
     def __str__(self):
@@ -94,8 +94,8 @@ class ProviderOrder(models.Model):
     provider = models.ForeignKey("Provider", on_delete=models.CASCADE)
     showroom = models.ForeignKey("car_showrooms.CarShowroom", on_delete=models.CASCADE)
     car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
-    order_status = models.CharField(
-        choices=OrderStatus.choices, max_length=8, default=OrderStatus.PENDING
+    status = models.CharField(
+        choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING
     )
     car_quantity = models.PositiveIntegerField(default=1)
     sale_date = models.DateField(auto_now_add=True)
@@ -106,4 +106,4 @@ class ProviderOrder(models.Model):
     )
 
     def __str__(self):
-        return f"{self.showroom} order: {self.car}, quantity: {self.car_quantity}, status: {self.order_status}"
+        return f"{self.showroom} order: {self.car}, quantity: {self.car_quantity}, status: {self.status}"

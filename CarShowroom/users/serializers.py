@@ -8,4 +8,15 @@ class UserSerializer(CountryFieldMixin, serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = "__all__"
+        fields = (
+            "id",
+            "username",
+            "password",
+            "first_name",
+            "last_name",
+            "email",
+            "type",
+            "phone_number",
+            "age",
+            "country",
+        )
