@@ -32,11 +32,11 @@ class CarShowroomSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user = self.context["request"].user
 
-        if self.instance is None:
-            if CarShowroom.objects.filter(owner_user_id=user.id).exists():
-                raise serializers.ValidationError(
-                    {"detail": "User already has showroom."}
-                )
+        if (
+            self.instance is None
+            and CarShowroom.objects.filter(owner_user_id=user.id).exists()
+        ):
+            raise serializers.ValidationError({"detail": "User already has showroom."})
 
         return attrs
 

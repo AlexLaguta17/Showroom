@@ -34,9 +34,11 @@ class ProviderSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user = self.context["request"].user
 
-        if self.instance is None:
-            if Provider.objects.filter(owner_user_id=user.id).exists():
-                raise serializers.ValidationError({"detail": "User already has one."})
+        if (
+            self.instance is None
+            and Provider.objects.filter(owner_user_id=user.id).exists()
+        ):
+            raise serializers.ValidationError({"detail": "User already has one."})
 
         return attrs
 
