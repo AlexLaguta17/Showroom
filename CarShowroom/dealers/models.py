@@ -37,7 +37,7 @@ class Car(models.Model):
     )
     color = models.CharField(null=True, max_length=30)
     engine_volume = models.DecimalField(
-        max_digits=3, decimal_places=1, validators=[MinValueValidator(0.0)], default=0.0
+        max_digits=3, decimal_places=1, validators=[MinValueValidator(0)], default=0
     )
 
     def __str__(self):
@@ -79,7 +79,7 @@ class ProviderCar(models.Model):
     price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
         null=True,
         blank=True,
     )
@@ -102,7 +102,7 @@ class ProviderOrder(models.Model):
     total_price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
     )
 
     def __str__(self):

@@ -34,7 +34,7 @@ class Discount(models.Model):
     percent = models.DecimalField(
         max_digits=4,
         decimal_places=2,
-        validators=[MinValueValidator(0.00), MaxValueValidator(100.00)],
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
         blank=False,
         null=False,
     )
@@ -62,7 +62,7 @@ class ShowroomCar(models.Model):
     price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
         default=0.0,
     )
     is_published = models.BooleanField(default=True)
@@ -88,7 +88,7 @@ class CarShowroomOrder(models.Model):
     price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
     )
 
     def __str__(self):

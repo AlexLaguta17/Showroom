@@ -21,7 +21,7 @@ class User(AbstractUser):
         default=0.0,
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
     )
 
     objects = UserManager()

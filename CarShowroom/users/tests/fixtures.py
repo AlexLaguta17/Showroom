@@ -1,6 +1,8 @@
 import pytest
 from rest_framework.test import APIClient
 
+from services.choices import UserType
+
 from .factories import UserFactory
 
 
@@ -23,6 +25,16 @@ def user():
 @pytest.fixture
 def another_user():
     return UserFactory()
+
+
+@pytest.fixture
+def provider_user():
+    return UserFactory(type=UserType.PROVIDER)
+
+
+@pytest.fixture
+def showroom_user():
+    return UserFactory(type=UserType.SHOWROOM)
 
 
 @pytest.fixture
