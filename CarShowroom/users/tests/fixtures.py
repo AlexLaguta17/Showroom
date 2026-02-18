@@ -18,6 +18,21 @@ def auth_client(user, client):
 
 
 @pytest.fixture
+def auth_role_client(client, request):
+    """
+    Returns authenticated client or anonymous client
+    depending on param value.
+    """
+    user_fixture = getattr(request, "param", None)
+
+    if user_fixture:
+        user = request.getfixturevalue(user_fixture)
+        client.force_authenticate(user=user)
+
+    return client
+
+
+@pytest.fixture
 def user():
     return UserFactory()
 
