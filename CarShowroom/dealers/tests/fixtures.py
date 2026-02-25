@@ -1,6 +1,6 @@
 import pytest
 
-from dealers.tests.factories import CarFactory, ProviderFactory, ProviderCarFactory
+from dealers.tests.factories import CarFactory, ProviderFactory, ProviderCarFactory, ProviderOrderFactory
 
 
 @pytest.fixture
@@ -25,3 +25,11 @@ def provider_car():
         return ProviderCarFactory(**kwargs)
 
     return _create_provider_car
+
+
+@pytest.fixture
+def provider_order():
+    def _create_provider_order(**kwargs):
+        return ProviderOrderFactory(**kwargs)
+
+    return _create_provider_order

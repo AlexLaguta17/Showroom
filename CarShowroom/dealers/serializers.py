@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from dealers.models import (
     Car,
@@ -6,6 +7,7 @@ from dealers.models import (
     ProviderCar,
     ProviderOrder,
 )
+from services.order_service import validate_order_creation
 
 
 class CarSerializer(serializers.ModelSerializer):
@@ -93,8 +95,18 @@ class ProviderOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProviderOrder
-        fields = "__all__"
-        read_only_fields = ["status", "total_price", "sale_date"]
+        fields = "id", "provider", "showroom", "car", "car_quantity", "status", "sale_date", "total_price"
+        read_only_fields = "status", "total_price", "sale_date", "showroom", "provider"
+
+    def validate(self, attrs):
+        provider = self.context['view'].provider
+        provider_car = attrs["car"]
+        car_quantity = attrs["car_quantity"]
+
+        total_price = validate_order_creation(provider_car, car_quantity, provider)
+
+        attrs["total_price"] = total_price
+        return attrs
 
 
 class ProviderOrderActionSerializer(serializers.Serializer):

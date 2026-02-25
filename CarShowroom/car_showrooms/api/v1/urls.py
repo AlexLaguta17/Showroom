@@ -5,9 +5,6 @@ from car_showrooms.api.v1.views import (
     ShowroomCarViewSet,
     CarShowroomOrderViewSet,
     ShowroomDiscountViewSet,
-    ShowroomProviderOrderCancelAPIView,
-    ShowroomProviderOrderDetailAPIView,
-    ShowroomProviderOrderListCreateAPIView,
 )
 
 CR_methods = {"get": "list", "post": "create"}
@@ -41,20 +38,5 @@ urlpatterns = [
     path(
         "<int:showroom_pk>/discounts/<int:pk>/",
         ShowroomDiscountViewSet.as_view(RUD_methods),
-    ),
-    path(
-        "<int:showroom_pk>/provider-orders/",
-        ShowroomProviderOrderListCreateAPIView.as_view(),
-        name="showroom-provider-order-list-create",
-    ),
-    path(
-        "<int:showroom_pk>/provider-orders/<int:order_pk>/",
-        ShowroomProviderOrderDetailAPIView.as_view(),
-        name="showroom-provider-order-detail",
-    ),
-    path(
-        "<int:showroom_pk>/provider-orders/<int:order_pk>/cancel/",
-        ShowroomProviderOrderCancelAPIView.as_view(),
-        name="showroom-provider-order-cancel",
     ),
 ]

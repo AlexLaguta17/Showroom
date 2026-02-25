@@ -93,7 +93,7 @@ class ProviderOrder(models.Model):
 
     provider = models.ForeignKey("Provider", on_delete=models.CASCADE)
     showroom = models.ForeignKey("car_showrooms.CarShowroom", on_delete=models.CASCADE)
-    car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
+    car = models.ForeignKey("dealers.ProviderCar", on_delete=models.CASCADE)
     status = models.CharField(
         choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING
     )

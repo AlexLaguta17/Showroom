@@ -3,14 +3,13 @@ from django.urls import path
 from dealers.api.v1.views import (
     CarDetailAPIView,
     CarListCreateAPIView,
-    ProviderOrderAPIView,
     ProviderDetailAPIView,
     ProviderCarDetailAPIView,
     ProviderListCreateAPIView,
     ProviderOrderActionAPIView,
     ProviderCarListCreateAPIView,
     ProviderDiscountDetailAPIView,
-    ProviderDiscountListCreateAPIView,
+    ProviderDiscountListCreateAPIView, ProviderOrderListAPIView, ProviderOrderDetailAPIView, ProviderOrderCreateAPIView,
 )
 
 urlpatterns = [
@@ -27,13 +26,18 @@ urlpatterns = [
     ),
     path(
         "<int:provider_pk>/orders/",
-        ProviderOrderAPIView.as_view(),
+        ProviderOrderListAPIView.as_view(),
         name="provider-order-list",
     ),
     path(
         "<int:provider_pk>/orders/<int:pk>/",
-        ProviderOrderAPIView.as_view(),
+        ProviderOrderDetailAPIView.as_view(),
         name="provider-order-detail",
+    ),
+    path(
+        "<int:provider_pk>/create-orders/",
+        ProviderOrderCreateAPIView.as_view(),
+        name="provider-order-create",
     ),
     path(
         "<int:provider_pk>/orders/<int:order_pk>/action/",

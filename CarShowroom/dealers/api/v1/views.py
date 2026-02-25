@@ -1,10 +1,10 @@
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import status, generics, viewsets
+from rest_framework import status, generics, permissions
 from rest_framework.permissions import IsAuthenticated
 
 from car_showrooms.models import Discount
-from dealers.mixins import ProviderContextMixin
+from dealers.mixins import ProviderContextMixin, BaseProviderOrderMixin
 from car_showrooms.serializers import DiscountSerializer
 from dealers.models import Car, Provider, ProviderCar, ProviderOrder
 from services.order_service import (
@@ -15,7 +15,7 @@ from dealers.permissions import (
     IsProviderOwner,
     IsProviderOrShowroom,
     IsProviderOwnerOrShowroom,
-    IsProviderCarOwnerOrShowroom,
+    IsProviderCarOwnerOrShowroom, IsShowroomOwnerUser, IsProviderOrShowroomOwner,
 )
 from dealers.serializers import (
     CarSerializer,
@@ -64,12 +64,17 @@ class ProviderDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 class ProviderCarListCreateAPIView(ProviderContextMixin, generics.ListCreateAPIView):
     serializer_class = ProviderCarSerializer
-    permission_classes = (IsAuthenticated, IsProviderOrShowroom, IsProviderOwner)
 
     def get_queryset(self):
         return ProviderCar.objects.filter(provider_id=self.provider.id).select_related(
             "car", "discount"
         )
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [IsAuthenticated(), IsProviderOrShowroom()]
+        else:
+            return [IsAuthenticated(), IsProviderOwner()]
 
     def perform_create(self, serializer):
         serializer.save(provider_id=self.request.user.provider.id)
@@ -122,61 +127,24 @@ class ProviderDiscountDetailAPIView(
         return Discount.objects.filter(owner_user_id=self.provider.owner_user_id)
 
 
-class ProviderOrderViewSet(viewsets.ModelViewSet):  # TODO Rewrite
+class ProviderOrderListAPIView(BaseProviderOrderMixin, generics.ListAPIView):
+    pass
+
+
+class ProviderOrderDetailAPIView(BaseProviderOrderMixin, generics.RetrieveAPIView):
+    pass
+
+
+class ProviderOrderCreateAPIView(ProviderContextMixin, generics.CreateAPIView):
+    queryset = ProviderOrder.objects.all()
     serializer_class = ProviderOrderSerializer
-
-    def get_queryset(self):
-        provider_pk = self.kwargs.get("provider_pk")
-        if provider_pk is None:
-            return ProviderOrder.objects.none()
-        return ProviderOrder.objects.filter(provider_id=provider_pk)
-
-    def get_object(self):
-        order_pk = self.kwargs.get("pk")
-        return get_object_or_404(self.get_queryset(), pk=order_pk)
+    permission_classes = (IsAuthenticated, IsShowroomOwnerUser)
 
     def perform_create(self, serializer):
-        provider_pk = self.kwargs.get("provider_pk")
-        serializer.save(provider_id=provider_pk)
-
-
-class ProviderOrderAPIView(
-    generics.GenericAPIView
-):  # TODO: divide into 2 Views (ListAPIView, RetrieveAPIView)
-    """List all orders for a provider or retrieve detailed information about a specific provider order."""
-
-    serializer_class = ProviderOrderSerializer
-    permission_classes = [IsProviderOwner]
-
-    def get_queryset(self):
-        provider_pk = self.kwargs.get("provider_pk")
-
-        if provider_pk is None:
-            return ProviderOrder.objects.none()
-        return ProviderOrder.objects.filter(provider_id=provider_pk)
-
-    def get_object(self):
-        order_pk = self.kwargs.get("pk")
-        return get_object_or_404(self.get_queryset(), pk=order_pk)
-
-    def list(self, request, *args, **kwargs):
-        """List all orders for a provider."""
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
-    def retrieve(self, request, *args, **kwargs):
-        """Retrieve detailed information about a specific provider order."""
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-
-    def get(self, request, *args, **kwargs):
-        """Handle GET request - list orders if no pk, retrieve order if pk is provided."""
-        pk = kwargs.get("pk")
-        if pk is not None:
-            return self.retrieve(request, *args, **kwargs)
-        return self.list(request, *args, **kwargs)
+        serializer.save(
+            provider_id=self.provider.id,
+            showroom=self.request.user.carshowroom,
+        )
 
 
 class ProviderOrderActionAPIView(
