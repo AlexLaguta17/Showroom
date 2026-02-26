@@ -26,6 +26,18 @@ def order_create_url(provider_pk):
     return reverse("provider-order-create", kwargs={"provider_pk": provider_pk})
 
 
+def order_confirm_url(provider_pk, pk):
+    return reverse("provider-order-confirm", kwargs={"provider_pk": provider_pk, "pk": pk})
+
+
+def order_reject_url(provider_pk, pk):
+    return reverse("provider-order-reject", kwargs={"provider_pk": provider_pk, "pk": pk})
+
+
+def order_cancel_url(provider_pk, pk):
+    return reverse("provider-order-cancel", kwargs={"provider_pk": provider_pk, "pk": pk})
+
+
 @pytest.mark.django_db
 class TestProviderOrder:
     """
@@ -339,3 +351,202 @@ class TestProviderOrder:
         client.force_authenticate(user=showroom_user)
         response = client.patch(order_detail_url(my_provider.id, order.id), {"car_quantity": 1})
         assert response.status_code == expected_status
+
+    @pytest.mark.parametrize("get_action_url", [order_confirm_url, order_reject_url])
+    @pytest.mark.parametrize(
+        "auth_role_client, is_provider_owner, needs_showroom, expected_status",
+        [
+            ("provider_user", True, False, status.HTTP_200_OK),
+            ("provider_user", False, False, status.HTTP_403_FORBIDDEN),
+            ("showroom_user", False, True, status.HTTP_403_FORBIDDEN),
+            ("user", False, False, status.HTTP_403_FORBIDDEN),
+            (None, False, False, status.HTTP_401_UNAUTHORIZED),
+        ],
+        indirect=["auth_role_client"],
+    )
+    def test_provider_action_permissions(
+        self,
+        auth_role_client,
+        is_provider_owner,
+        needs_showroom,
+        get_action_url,
+        provider,
+        showroom,
+        provider_car,
+        provider_order,
+        expected_status,
+    ):
+        force_user = getattr(auth_role_client.handler, "_force_user", None)
+        my_provider = provider(owner_user=force_user) if is_provider_owner else provider()
+
+        if needs_showroom and force_user:
+            showroom(owner_user=force_user)
+
+        # Setup a completable order: showroom with sufficient balance and adequate stock
+        order_showroom_user = UserFactory(type=UserType.SHOWROOM, balance=Decimal("50000.00"))
+        order_showroom = showroom(owner_user=order_showroom_user)
+        my_car = provider_car(provider=my_provider, car_quantity=5, price=Decimal("100.00"))
+        order = provider_order(
+            provider=my_provider, showroom=order_showroom, car=my_car, car_quantity=1, total_price=Decimal("100.00")
+        )
+
+        response = auth_role_client.post(get_action_url(my_provider.id, order.id))
+        assert response.status_code == expected_status
+
+    @pytest.mark.parametrize(
+        "auth_role_client, needs_showroom, is_order_owner, expected_status",
+        [
+            ("showroom_user", True, True, status.HTTP_200_OK),
+            ("showroom_user", True, False, status.HTTP_404_NOT_FOUND),
+            ("provider_user", False, False, status.HTTP_403_FORBIDDEN),
+            ("user", False, False, status.HTTP_403_FORBIDDEN),
+            (None, False, False, status.HTTP_401_UNAUTHORIZED),
+        ],
+        indirect=["auth_role_client"],
+    )
+    def test_cancel_permissions(
+        self,
+        auth_role_client,
+        needs_showroom,
+        is_order_owner,
+        provider,
+        showroom,
+        provider_car,
+        provider_order,
+        expected_status,
+    ):
+        force_user = getattr(auth_role_client.handler, "_force_user", None)
+        my_provider = provider()
+        my_car = provider_car(provider=my_provider, car_quantity=10)
+
+        auth_showroom = showroom(owner_user=force_user) if needs_showroom and force_user else None
+        order_showroom = auth_showroom if is_order_owner and auth_showroom else showroom()
+
+        order = provider_order(provider=my_provider, showroom=order_showroom, car=my_car)
+
+        response = auth_role_client.post(order_cancel_url(my_provider.id, order.id))
+        assert response.status_code == expected_status
+
+    def test_confirm_completes_order(
+        self,
+        client,
+        provider,
+        showroom,
+        provider_car,
+        provider_order,
+        provider_user,
+    ):
+        from car_showrooms.models import ShowroomCar
+
+        my_provider = provider(owner_user=provider_user)
+        total_price = Decimal("30000.00")
+        initial_provider_balance = provider_user.balance
+
+        showroom_owner = UserFactory(type=UserType.SHOWROOM, balance=Decimal("50000.00"))
+        my_showroom = showroom(owner_user=showroom_owner)
+        my_car = provider_car(provider=my_provider, car_quantity=5, price=Decimal("30000.00"))
+        order = provider_order(
+            provider=my_provider, showroom=my_showroom, car=my_car, car_quantity=1, total_price=total_price
+        )
+
+        client.force_authenticate(user=provider_user)
+        response = client.post(order_confirm_url(my_provider.id, order.id))
+
+        assert response.status_code == status.HTTP_200_OK
+
+        showroom_owner.refresh_from_db()
+        provider_user.refresh_from_db()
+        my_car.refresh_from_db()
+        order.refresh_from_db()
+
+        assert showroom_owner.balance == Decimal("50000.00") - total_price
+        assert provider_user.balance == initial_provider_balance + total_price
+        assert my_car.car_quantity == 4  # 5 - 1
+        assert ShowroomCar.objects.filter(showroom=my_showroom).exists()
+        showroom_car = ShowroomCar.objects.get(showroom=my_showroom)
+        assert showroom_car.car_quantity == 1
+        assert showroom_car.car == my_car.car  # guards the order.car.car FK fix
+        assert order.status == OrderStatus.COMPLETED
+
+    @staticmethod
+    def _setup_action_order(user_fixture, request, provider, showroom, provider_car, provider_order, **order_kwargs):
+        """
+        Create a PENDING order with correct provider/showroom ownership for the given user fixture.
+
+        provider_user → owns the provider, a separate showroom is created for the order.
+        showroom_user → owns the order's showroom, a separate provider is created.
+
+        Returns (auth_user, my_provider, order).
+        """
+        auth_user = request.getfixturevalue(user_fixture)
+        if user_fixture == "provider_user":
+            my_provider = provider(owner_user=auth_user)
+            order_showroom = showroom()
+        else:
+            my_provider = provider()
+            order_showroom = showroom(owner_user=auth_user)
+        my_car = provider_car(provider=my_provider, car_quantity=10)
+        order = provider_order(provider=my_provider, showroom=order_showroom, car=my_car, **order_kwargs)
+        return auth_user, my_provider, order
+
+    @pytest.mark.parametrize(
+        "get_action_url, user_fixture, expected_order_status",
+        [
+            (order_reject_url, "provider_user", OrderStatus.REJECTED),
+            (order_cancel_url, "showroom_user", OrderStatus.CANCELLED),
+        ],
+    )
+    def test_status_change_on_action(
+        self,
+        client,
+        get_action_url,
+        user_fixture,
+        expected_order_status,
+        provider,
+        showroom,
+        provider_car,
+        provider_order,
+        request,
+    ):
+        auth_user, my_provider, order = self._setup_action_order(
+            user_fixture, request, provider, showroom, provider_car, provider_order
+        )
+
+        client.force_authenticate(user=auth_user)
+        response = client.post(get_action_url(my_provider.id, order.id))
+
+        assert response.status_code == status.HTTP_200_OK
+        order.refresh_from_db()
+        assert order.status == expected_order_status
+
+    @pytest.mark.parametrize(
+        "initial_order_status",
+        [OrderStatus.COMPLETED, OrderStatus.REJECTED, OrderStatus.CANCELLED],
+    )
+    @pytest.mark.parametrize(
+        "get_action_url, user_fixture",
+        [
+            (order_confirm_url, "provider_user"),
+            (order_reject_url, "provider_user"),
+            (order_cancel_url, "showroom_user"),
+        ],
+    )
+    def test_actions_require_pending_status(
+        self,
+        client,
+        get_action_url,
+        user_fixture,
+        initial_order_status,
+        provider,
+        showroom,
+        provider_car,
+        provider_order,
+        request,
+    ):
+        auth_user, my_provider, order = self._setup_action_order(
+            user_fixture, request, provider, showroom, provider_car, provider_order, status=initial_order_status
+        )
+
+        client.force_authenticate(user=auth_user)
+        response = client.post(get_action_url(my_provider.id, order.id))
+        assert response.status_code == status.HTTP_400_BAD_REQUEST

@@ -7,8 +7,6 @@ including price calculation, order validation, and order completion.
 
 from decimal import Decimal
 
-from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from users.models import User
@@ -57,10 +55,11 @@ def validate_car_provider(provider_car: ProviderCar, provider: Provider) -> None
         )
 
 
-def validate_order_status(order: ProviderOrder, expected_status: OrderStatus) -> None:
+def validate_order_status(order: ProviderOrder, *expected_statuses: OrderStatus) -> None:
     """Validate that order has the expected status."""
-    if order.status != expected_status:
-        raise DRFValidationError(f"Order is not in {expected_status} status")
+    if order.status not in expected_statuses:
+        allowed = ", ".join(str(expected_status) for expected_status in expected_statuses)
+        raise DRFValidationError(f"Order status must be: {allowed}")
 
 
 def validate_order_creation(provider_car: ProviderCar, car_quantity: int, provider: Provider) -> Decimal:
@@ -79,25 +78,30 @@ def complete_order(order: ProviderOrder) -> None:
 
     validate_order_status(order, OrderStatus.PENDING)
 
-    provider = order.provider
-    showroom = order.showroom
-    provider_car = order.car
-
-    validate_car_quantity(provider_car, order.car_quantity)
-    validate_balance(showroom.owner_user, order.total_price)
-
     with transaction.atomic():
-        showroom.owner_user.balance -= order.total_price
-        showroom.owner_user.save()
+        order = ProviderOrder.objects.select_for_update().get(pk=order.pk)
+        validate_order_status(order, OrderStatus.PENDING)
 
-        provider.owner_user.balance += order.total_price
-        provider.owner_user.save()
+        provider = order.provider
+        showroom = order.showroom
+        provider_car = ProviderCar.objects.select_for_update().get(pk=order.car_id)
+        showroom_owner = User.objects.select_for_update().get(pk=showroom.owner_user_id)
+        provider_owner = User.objects.select_for_update().get(pk=provider.owner_user_id)
+
+        validate_car_quantity(provider_car, order.car_quantity)
+        validate_balance(showroom_owner, order.total_price)
+
+        showroom_owner.balance -= order.total_price
+        showroom_owner.save()
+
+        provider_owner.balance += order.total_price
+        provider_owner.save()
 
         provider_car.car_quantity -= order.car_quantity
         provider_car.save()
 
         showroom_car, created = ShowroomCar.objects.get_or_create(
-            showroom=showroom, car=order.car, defaults={"car_quantity": 0, "price": 0}
+            showroom=showroom, car=provider_car.car, defaults={"car_quantity": 0, "price": 0}
         )
         showroom_car.car_quantity += order.car_quantity
         showroom_car.save()
@@ -106,42 +110,26 @@ def complete_order(order: ProviderOrder) -> None:
         order.save()
 
 
-def approve_order(order: ProviderOrder) -> Response:  # TODO: Rename
-    """Approve and complete an order."""
-    try:
-        complete_order(order)
+def reject_order(order: ProviderOrder) -> None:
+    """Reject an order (provider action)."""
+    from django.db import transaction
 
-        return Response(  # TODO rewrite without Response
-            {
-                "id": order.id,
-                "order_status": order.status,
-                "message": "Order approved and completed successfully",
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-def reject_order(order: ProviderOrder) -> Response:  # TODO Rename
-    """Reject an order."""
-    try:
+    with transaction.atomic():
+        order = ProviderOrder.objects.select_for_update().get(pk=order.pk)
         validate_order_status(order, OrderStatus.PENDING)
-    except DRFValidationError as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)  # TODO rewrite without Response
+        order.status = OrderStatus.REJECTED
+        order.save()
 
-    order.status = OrderStatus.REJECTED
-    order.save()
 
-    return Response(
-        {
-            "id": order.id,
-            "order_status": order.status,
-            "message": "Order rejected successfully",
-        },
-        status=status.HTTP_200_OK,
-    )
+def cancel_order(order: ProviderOrder) -> None:
+    """Cancel an order (showroom action)."""
+    from django.db import transaction
+
+    with transaction.atomic():
+        order = ProviderOrder.objects.select_for_update().get(pk=order.pk)
+        validate_order_status(order, OrderStatus.PENDING)
+        order.status = OrderStatus.CANCELLED
+        order.save()
 
 
 def update_provider_order(order: ProviderOrder, provider_car: ProviderCar, car_quantity: int) -> None:

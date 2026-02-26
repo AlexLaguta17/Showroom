@@ -5,9 +5,14 @@ from rest_framework import status, generics, permissions
 
 from car_showrooms.models import Discount
 from car_showrooms.serializers import DiscountSerializer
-from services.order_service import update_provider_order
 from dealers.models import Car, Provider, ProviderCar, ProviderOrder
 from dealers.mixins import ProviderContextMixin, BaseProviderOrderMixin
+from services.order_service import (
+    cancel_order,
+    reject_order,
+    complete_order,
+    update_provider_order,
+)
 from dealers.serializers import (
     CarSerializer,
     ProviderSerializer,
@@ -138,6 +143,39 @@ class ProviderOrderDetailAPIView(BaseProviderOrderMixin, generics.RetrieveUpdate
         provider_car = serializer.validated_data.get("car", order.car)
         car_quantity = serializer.validated_data.get("car_quantity", order.car_quantity)
         update_provider_order(order, provider_car, car_quantity)
+
+
+class ProviderOrderConfirmAPIView(BaseProviderOrderMixin, generics.GenericAPIView):
+    """Provider confirms and completes an order."""
+
+    permission_classes = (IsAuthenticated, IsProviderOwner)
+
+    def post(self, request, *args, **kwargs):
+        order = self.get_object()
+        complete_order(order)
+        return Response({"detail": "Order confirmed successfully."}, status=status.HTTP_200_OK)
+
+
+class ProviderOrderRejectAPIView(BaseProviderOrderMixin, generics.GenericAPIView):
+    """Provider rejects an order."""
+
+    permission_classes = (IsAuthenticated, IsProviderOwner)
+
+    def post(self, request, *args, **kwargs):
+        order = self.get_object()
+        reject_order(order)
+        return Response({"detail": "Order rejected successfully."}, status=status.HTTP_200_OK)
+
+
+class ProviderOrderCancelAPIView(BaseProviderOrderMixin, generics.GenericAPIView):
+    """Showroom cancels their own order."""
+
+    permission_classes = (IsAuthenticated, IsOrderShowroomOwner)
+
+    def post(self, request, *args, **kwargs):
+        order = self.get_object()
+        cancel_order(order)
+        return Response({"detail": "Order cancelled successfully."}, status=status.HTTP_200_OK)
 
 
 class ProviderOrderCreateAPIView(ProviderContextMixin, generics.CreateAPIView):

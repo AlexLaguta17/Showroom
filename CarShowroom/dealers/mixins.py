@@ -23,6 +23,8 @@ class BaseProviderOrderMixin(ProviderContextMixin):
         queryset = ProviderOrder.objects.filter(provider_id=self.provider.id)
 
         if self.request.user.type == UserType.SHOWROOM:
+            if not hasattr(self.request.user, "carshowroom"):
+                return queryset.none()
             showroom_id = self.request.user.carshowroom.id
             queryset = queryset.filter(showroom_id=showroom_id)
 
