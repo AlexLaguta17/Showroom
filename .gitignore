@@ -172,3 +172,4 @@ cython_debug/
 *.md
 /CarShowroom/schema.yml
 /CarShowroom/.claude/
+/CarShowroom/doc/

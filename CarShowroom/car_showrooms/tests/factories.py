@@ -26,19 +26,13 @@ class DiscountFactory(DjangoModelFactory):
     )
 
     date_start = factory.Faker("date_between", start_date="-30d", end_date="today")
-    date_end = factory.LazyAttribute(
-        lambda o: o.date_start + datetime.timedelta(days=random.randint(1, 30))
-    )
+    date_end = factory.LazyAttribute(lambda o: o.date_start + datetime.timedelta(days=random.randint(1, 30)))
     owner_user = factory.SubFactory(UserFactory, type=UserType.SHOWROOM)
 
     class Params:
         is_expired = factory.Trait(
-            date_start=factory.Faker(
-                "date_between", start_date="-60d", end_date="-31d"
-            ),
-            date_end=factory.LazyAttribute(
-                lambda o: o.date_start + datetime.timedelta(days=10)
-            ),
+            date_start=factory.Faker("date_between", start_date="-60d", end_date="-31d"),
+            date_end=factory.LazyAttribute(lambda o: o.date_start + datetime.timedelta(days=10)),
         )
 
 

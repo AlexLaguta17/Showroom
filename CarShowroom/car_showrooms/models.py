@@ -55,9 +55,7 @@ class ShowroomCar(models.Model):
 
     car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
     showroom = models.ForeignKey("CarShowroom", on_delete=models.CASCADE)
-    discount = models.ForeignKey(
-        "Discount", on_delete=models.SET_NULL, blank=True, null=True
-    )
+    discount = models.ForeignKey("Discount", on_delete=models.SET_NULL, blank=True, null=True)
     car_quantity = models.IntegerField(default=0)
     price = models.DecimalField(
         max_digits=12,
@@ -81,9 +79,7 @@ class CarShowroomOrder(models.Model):
         limit_choices_to={"type": UserType.CUSTOMER},
     )
     car = models.ForeignKey("ShowroomCar", on_delete=models.CASCADE)
-    status = models.CharField(
-        choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING
-    )
+    status = models.CharField(choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING)
     sale_date = models.DateField(auto_now_add=True)
     price = models.DecimalField(
         max_digits=12,

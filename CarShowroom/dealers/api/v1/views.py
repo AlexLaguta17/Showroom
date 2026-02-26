@@ -1,29 +1,29 @@
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework import status, generics, permissions
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status, generics, permissions
 
 from car_showrooms.models import Discount
-from dealers.mixins import ProviderContextMixin, BaseProviderOrderMixin
 from car_showrooms.serializers import DiscountSerializer
+from services.order_service import update_provider_order
 from dealers.models import Car, Provider, ProviderCar, ProviderOrder
-from services.order_service import (
-    _reject_order,
-    _approve_order,
-)
-from dealers.permissions import (
-    IsProviderOwner,
-    IsProviderOrShowroom,
-    IsProviderOwnerOrShowroom,
-    IsProviderCarOwnerOrShowroom, IsShowroomOwnerUser, IsProviderOrShowroomOwner,
-)
+from dealers.mixins import ProviderContextMixin, BaseProviderOrderMixin
 from dealers.serializers import (
     CarSerializer,
     ProviderSerializer,
     ProviderCarSerializer,
     ProviderOrderSerializer,
     UpdateProviderCarSerializer,
-    ProviderOrderActionSerializer,
+    ProviderOrderUpdateSerializer,
+)
+from dealers.permissions import (
+    IsProviderOwner,
+    IsShowroomOwnerUser,
+    IsOrderShowroomOwner,
+    IsProviderOrShowroom,
+    IsProviderOrShowroomOwner,
+    IsProviderOwnerOrShowroom,
+    IsProviderCarOwnerOrShowroom,
 )
 
 
@@ -66,9 +66,7 @@ class ProviderCarListCreateAPIView(ProviderContextMixin, generics.ListCreateAPIV
     serializer_class = ProviderCarSerializer
 
     def get_queryset(self):
-        return ProviderCar.objects.filter(provider_id=self.provider.id).select_related(
-            "car", "discount"
-        )
+        return ProviderCar.objects.filter(provider_id=self.provider.id).select_related("car", "discount")
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -80,9 +78,7 @@ class ProviderCarListCreateAPIView(ProviderContextMixin, generics.ListCreateAPIV
         serializer.save(provider_id=self.request.user.provider.id)
 
 
-class ProviderCarDetailAPIView(
-    ProviderContextMixin, generics.RetrieveUpdateDestroyAPIView
-):
+class ProviderCarDetailAPIView(ProviderContextMixin, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (
         IsAuthenticated,
         IsProviderOrShowroom,
@@ -90,9 +86,7 @@ class ProviderCarDetailAPIView(
     )
 
     def get_queryset(self):
-        return ProviderCar.objects.filter(provider_id=self.provider.id).select_related(
-            "car", "discount"
-        )
+        return ProviderCar.objects.filter(provider_id=self.provider.id).select_related("car", "discount")
 
     def get_serializer_class(self):
         if self.request.method in ("PUT", "PATCH"):
@@ -100,9 +94,7 @@ class ProviderCarDetailAPIView(
         return ProviderCarSerializer
 
 
-class ProviderDiscountListCreateAPIView(
-    ProviderContextMixin, generics.ListCreateAPIView
-):
+class ProviderDiscountListCreateAPIView(ProviderContextMixin, generics.ListCreateAPIView):
     serializer_class = DiscountSerializer
     permission_classes = (IsAuthenticated, IsProviderOrShowroom, IsProviderOwner)
 
@@ -113,9 +105,7 @@ class ProviderDiscountListCreateAPIView(
         serializer.save(owner_user_id=self.request.user.id)
 
 
-class ProviderDiscountDetailAPIView(
-    ProviderContextMixin, generics.RetrieveUpdateDestroyAPIView
-):
+class ProviderDiscountDetailAPIView(ProviderContextMixin, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = DiscountSerializer
     permission_classes = (
         IsAuthenticated,
@@ -131,8 +121,23 @@ class ProviderOrderListAPIView(BaseProviderOrderMixin, generics.ListAPIView):
     pass
 
 
-class ProviderOrderDetailAPIView(BaseProviderOrderMixin, generics.RetrieveAPIView):
-    pass
+class ProviderOrderDetailAPIView(BaseProviderOrderMixin, generics.RetrieveUpdateAPIView):
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return ProviderOrderUpdateSerializer
+        return super().get_serializer_class()
+
+    def get_permissions(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return [IsAuthenticated(), IsOrderShowroomOwner()]
+        return super().get_permissions()
+
+    def perform_update(self, serializer):
+        order = serializer.instance
+        provider_car = serializer.validated_data.get("car", order.car)
+        car_quantity = serializer.validated_data.get("car_quantity", order.car_quantity)
+        update_provider_order(order, provider_car, car_quantity)
 
 
 class ProviderOrderCreateAPIView(ProviderContextMixin, generics.CreateAPIView):
@@ -144,44 +149,4 @@ class ProviderOrderCreateAPIView(ProviderContextMixin, generics.CreateAPIView):
         serializer.save(
             provider_id=self.provider.id,
             showroom=self.request.user.carshowroom,
-        )
-
-
-class ProviderOrderActionAPIView(
-    generics.GenericAPIView
-):  # TODO: Divide into 2 endpoints: ...order/approve and .../order/reject
-    """Approve or reject a provider order."""
-
-    serializer_class = ProviderOrderActionSerializer
-    permission_classes = [IsProviderOwner]
-
-    def get_queryset(self):
-        provider_pk = self.kwargs.get("provider_pk")
-        if provider_pk is None:
-            return ProviderOrder.objects.none()
-        return ProviderOrder.objects.filter(provider_id=provider_pk)
-
-    def get_object(self):
-        order_pk = self.kwargs.get("order_pk")
-        order = get_object_or_404(self.get_queryset(), pk=order_pk)
-        self.check_object_permissions(self.request, order)
-        return order
-
-    def post(self, request, provider_pk, order_pk):
-        """Handle POST request to approve or reject an order."""
-        order = self.get_object()
-
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        action = serializer.validated_data["action"]
-
-        if action == "approve":
-            return _approve_order(order)
-        elif action == "reject":
-            return _reject_order(order)
-
-        return Response(
-            {"error": "Invalid action."},
-            status=status.HTTP_400_BAD_REQUEST,
         )

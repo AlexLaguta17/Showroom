@@ -11,9 +11,7 @@ from services.choices import UserType
 class User(AbstractUser):
     """Extended AbstractUser for realize roles of UserType.choices"""
 
-    type = models.CharField(
-        choices=UserType.choices, max_length=8, default=UserType.CUSTOMER
-    )
+    type = models.CharField(choices=UserType.choices, max_length=8, default=UserType.CUSTOMER)
     phone_number = PhoneNumberField(null=True, unique=True)
     age = models.IntegerField(null=True, validators=[MinValueValidator(18)])
     country = CountryField(null=True, blank_label="(select country)")

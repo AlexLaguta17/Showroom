@@ -1,10 +1,10 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 
-from dealers.models import Provider, ProviderOrder
-from dealers.permissions import IsProviderOrShowroomOwner
-from dealers.serializers import ProviderOrderSerializer
 from services.choices import UserType
+from dealers.models import Provider, ProviderOrder
+from dealers.serializers import ProviderOrderSerializer
+from dealers.permissions import IsProviderOrShowroomOwner
 
 
 class ProviderContextMixin:

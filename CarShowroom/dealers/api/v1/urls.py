@@ -5,11 +5,13 @@ from dealers.api.v1.views import (
     CarListCreateAPIView,
     ProviderDetailAPIView,
     ProviderCarDetailAPIView,
+    ProviderOrderListAPIView,
     ProviderListCreateAPIView,
-    ProviderOrderActionAPIView,
+    ProviderOrderCreateAPIView,
+    ProviderOrderDetailAPIView,
     ProviderCarListCreateAPIView,
     ProviderDiscountDetailAPIView,
-    ProviderDiscountListCreateAPIView, ProviderOrderListAPIView, ProviderOrderDetailAPIView, ProviderOrderCreateAPIView,
+    ProviderDiscountListCreateAPIView,
 )
 
 urlpatterns = [
@@ -38,10 +40,5 @@ urlpatterns = [
         "<int:provider_pk>/create-orders/",
         ProviderOrderCreateAPIView.as_view(),
         name="provider-order-create",
-    ),
-    path(
-        "<int:provider_pk>/orders/<int:order_pk>/action/",
-        ProviderOrderActionAPIView.as_view(),
-        name="provider-order-action-list",
     ),
 ]

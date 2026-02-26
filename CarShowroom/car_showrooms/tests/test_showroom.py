@@ -75,9 +75,7 @@ class TestCarShowroomPermissions:
             ("anonymous", status.HTTP_401_UNAUTHORIZED),
         ],
     )
-    def test_update_showroom_permissions(
-        self, client, showroom, showroom_user, another_user, role, expected_status
-    ):
+    def test_update_showroom_permissions(self, client, showroom, showroom_user, another_user, role, expected_status):
         obj = showroom(owner_user=showroom_user, name="Old Name")
         url = showroom_detail_url(obj.id)
 
@@ -140,9 +138,7 @@ class TestShowroomCarPermissions:
             ("owner", 4),
         ],
     )
-    def test_showroom_car_queryset_filtering(
-        self, client, showroom, showroom_car, showroom_user, role, expected_count
-    ):
+    def test_showroom_car_queryset_filtering(self, client, showroom, showroom_car, showroom_user, role, expected_count):
         my_showroom = showroom(owner_user=showroom_user)
 
         showroom_car(

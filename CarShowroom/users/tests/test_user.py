@@ -23,9 +23,7 @@ class TestUserAPI:
             ("auth_client", status.HTTP_403_FORBIDDEN),
         ],
     )
-    def test_create_user_permissions(
-        self, request, client_fixture, expected_status, user_payload
-    ):
+    def test_create_user_permissions(self, request, client_fixture, expected_status, user_payload):
         client = request.getfixturevalue(client_fixture)
         response = client.post(USERS_URL, user_payload)
 

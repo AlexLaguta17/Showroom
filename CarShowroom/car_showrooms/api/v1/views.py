@@ -10,21 +10,11 @@ from dealers.models import Provider, ProviderOrder
 from services.choices import UserType, OrderStatus
 from car_showrooms.mixins import CarShowroomContextMixin
 from car_showrooms.models import Discount, CarShowroom, ShowroomCar, CarShowroomOrder
-from services.order_service import (
-    update_provider_order,
-    validate_order_status,
-    validate_order_creation,
-)
 from car_showrooms.permissions import (
     IsOrderViewer,
     IsDiscountOwner,
     IsCarShowroomOwner,
     IsShowroomCarOwner,
-)
-from dealers.serializers import (
-    ProviderOrderSerializer,
-    ProviderOrderCreateSerializer,
-    ProviderOrderUpdateSerializer,
 )
 from car_showrooms.serializers import (
     DiscountSerializer,
@@ -50,9 +40,9 @@ class ShowroomCarViewSet(CarShowroomContextMixin, viewsets.ModelViewSet):
     permission_classes = (IsShowroomCarOwner,)
 
     def get_queryset(self):
-        queryset = ShowroomCar.objects.filter(
-            showroom_id=self.showroom.id
-        ).select_related("car", "discount", "showroom__owner_user")
+        queryset = ShowroomCar.objects.filter(showroom_id=self.showroom.id).select_related(
+            "car", "discount", "showroom__owner_user"
+        )
         user = self.request.user
         if user.is_authenticated and self.showroom.owner_user.id == user.id:
             return queryset
@@ -81,9 +71,7 @@ class CarShowroomOrderViewSet(viewsets.ModelViewSet):  # TODO Rewrite
     def get_queryset(self):
         showroom_pk = self.kwargs.get("showroom_pk")
         user = self.request.user
-        qs = CarShowroomOrder.objects.filter(showroom_id=showroom_pk).select_related(
-            "car"
-        )
+        qs = CarShowroomOrder.objects.filter(showroom_id=showroom_pk).select_related("car")
 
         if user.type == UserType.CUSTOMER:
             return qs.filter(car_buyer_id=user.id)

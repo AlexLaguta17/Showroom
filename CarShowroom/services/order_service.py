@@ -8,14 +8,13 @@ including price calculation, order validation, and order completion.
 from decimal import Decimal
 
 from rest_framework import status
-from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
-
+from users.models import User
+from services.choices import OrderStatus
 from car_showrooms.models import CarShowroom, ShowroomCar
 from dealers.models import Provider, ProviderCar, ProviderOrder
-from services.choices import OrderStatus
-from users.models import User
 
 
 def calculate_order_price(provider_car: ProviderCar, car_quantity: int) -> Decimal:
@@ -50,20 +49,21 @@ def validate_balance(user: User, total_price: Decimal) -> None:
 def validate_car_provider(provider_car: ProviderCar, provider: Provider) -> None:
     """Validate that provider actually has this provider_car"""
     if provider_car.provider.id != provider.id:
-        raise DRFValidationError({
-            "detail": f"Car {provider_car.car.brand} {provider_car.car.model} does not belong to the provider {provider.name}"
-        })
+        raise DRFValidationError(
+            {
+                "detail": f"Car {provider_car.car.brand} {provider_car.car.model} "
+                f"does not belong to the provider {provider.name}"
+            }
+        )
 
-def validate_order_status(
-    order: ProviderOrder, expected_status: OrderStatus
-) -> None:
+
+def validate_order_status(order: ProviderOrder, expected_status: OrderStatus) -> None:
     """Validate that order has the expected status."""
     if order.status != expected_status:
         raise DRFValidationError(f"Order is not in {expected_status} status")
 
 
-def validate_order_creation(
-    provider_car: ProviderCar, car_quantity: int, provider: Provider) -> Decimal:
+def validate_order_creation(provider_car: ProviderCar, car_quantity: int, provider: Provider) -> Decimal:
     """Validate order creation requirements and calculate total price."""
 
     validate_car_provider(provider_car, provider)
@@ -76,14 +76,12 @@ def validate_order_creation(
 def complete_order(order: ProviderOrder) -> None:
     """Complete an order: transfer money, update inventories, change status."""
     from django.db import transaction
-    from django.shortcuts import get_object_or_404
 
     validate_order_status(order, OrderStatus.PENDING)
 
     provider = order.provider
     showroom = order.showroom
-
-    provider_car = get_object_or_404(ProviderCar, provider=provider, car=order.car)
+    provider_car = order.car
 
     validate_car_quantity(provider_car, order.car_quantity)
     validate_balance(showroom.owner_user, order.total_price)
@@ -108,7 +106,7 @@ def complete_order(order: ProviderOrder) -> None:
         order.save()
 
 
-def _approve_order(order: ProviderOrder) -> Response:  # TODO: Rename
+def approve_order(order: ProviderOrder) -> Response:  # TODO: Rename
     """Approve and complete an order."""
     try:
         complete_order(order)
@@ -126,14 +124,12 @@ def _approve_order(order: ProviderOrder) -> Response:  # TODO: Rename
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def _reject_order(order: ProviderOrder) -> Response:  # TODO Rename
+def reject_order(order: ProviderOrder) -> Response:  # TODO Rename
     """Reject an order."""
     try:
         validate_order_status(order, OrderStatus.PENDING)
     except DRFValidationError as e:
-        return Response(
-            {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
-        )  # TODO rewrite without Response
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)  # TODO rewrite without Response
 
     order.status = OrderStatus.REJECTED
     order.save()
@@ -148,18 +144,18 @@ def _reject_order(order: ProviderOrder) -> Response:  # TODO Rename
     )
 
 
-def update_provider_order(order: ProviderOrder, car, car_quantity: int) -> None:
+def update_provider_order(order: ProviderOrder, provider_car: ProviderCar, car_quantity: int) -> None:
     """Update a provider order with new car and/or quantity."""
-    validate_order_status(order, OrderStatus.PENDING)  # TODO rm hardcoding
+    validate_order_status(order, OrderStatus.PENDING)
 
-    if car != order.car or car_quantity != order.car_quantity:
+    if provider_car != order.car or car_quantity != order.car_quantity:
         total_price = validate_order_creation(
-            provider=order.provider,
-            car_id=car.id,
-            car_quantity=car_quantity,
+            provider_car,
+            car_quantity,
+            order.provider,
         )
 
-        order.car = car
+        order.car = provider_car
         order.car_quantity = car_quantity
         order.total_price = total_price
         order.save()

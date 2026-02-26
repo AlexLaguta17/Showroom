@@ -1,13 +1,12 @@
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 
+from services.order_service import validate_order_creation
 from dealers.models import (
     Car,
     Provider,
     ProviderCar,
     ProviderOrder,
 )
-from services.order_service import validate_order_creation
 
 
 class CarSerializer(serializers.ModelSerializer):
@@ -36,10 +35,7 @@ class ProviderSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user = self.context["request"].user
 
-        if (
-            self.instance is None
-            and Provider.objects.filter(owner_user_id=user.id).exists()
-        ):
+        if self.instance is None and Provider.objects.filter(owner_user_id=user.id).exists():
             raise serializers.ValidationError({"detail": "User already has one."})
 
         return attrs
@@ -56,38 +52,7 @@ class UpdateProviderCarSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProviderCar
-        fields = (
-            "id",
-            "car_quantity",
-            "price",
-            "discount",
-        )
-
-
-# TODO redo everything below
-class ProviderOrderCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating a new provider order."""
-
-    provider_id = serializers.IntegerField(write_only=True)
-    car_id = serializers.IntegerField(write_only=True)
-
-    class Meta:
-        model = ProviderOrder
-        fields = ["provider_id", "car_id", "car_quantity"]
-
-
-class ProviderOrderUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating a provider order.
-    Allows updating only car and car_quantity fields.
-    """
-
-    class Meta:
-        model = ProviderOrder
-        fields = ["car", "car_quantity"]
-        extra_kwargs = {
-            "car": {"required": False},
-            "car_quantity": {"required": False},
-        }
+        fields = "id", "car_quantity", "price", "discount"
 
 
 class ProviderOrderSerializer(serializers.ModelSerializer):
@@ -95,11 +60,25 @@ class ProviderOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProviderOrder
-        fields = "id", "provider", "showroom", "car", "car_quantity", "status", "sale_date", "total_price"
+        fields = (
+            "id",
+            "provider",
+            "showroom",
+            "car",
+            "car_quantity",
+            "status",
+            "sale_date",
+            "total_price",
+        )
         read_only_fields = "status", "total_price", "sale_date", "showroom", "provider"
+        extra_kwargs = {
+            "car_quantity": {
+                "required": True,
+            }
+        }
 
     def validate(self, attrs):
-        provider = self.context['view'].provider
+        provider = self.context["view"].provider
         provider_car = attrs["car"]
         car_quantity = attrs["car_quantity"]
 
@@ -109,7 +88,25 @@ class ProviderOrderSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class ProviderOrderActionSerializer(serializers.Serializer):
-    """Serializer for reject or approve an order."""
+class ProviderOrderUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating a provider order.
+    Allows updating only car and car_quantity fields.
+    """
 
-    action = serializers.ChoiceField(choices=["reject", "approve"])
+    class Meta:
+        model = ProviderOrder
+        fields = (
+            "id",
+            "provider",
+            "showroom",
+            "car",
+            "car_quantity",
+            "status",
+            "sale_date",
+            "total_price",
+        )
+        read_only_fields = "status", "total_price", "sale_date", "showroom", "provider"
+        extra_kwargs = {
+            "car": {"required": False},
+            "car_quantity": {"required": False},
+        }

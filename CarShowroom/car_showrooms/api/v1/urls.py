@@ -21,9 +21,7 @@ urlpatterns = [
     path("<int:showroom_pk>/cars/", ShowroomCarViewSet.as_view({"get": "list"})),
     path(
         "<int:showroom_pk>/cars/<int:pk>/",
-        ShowroomCarViewSet.as_view(
-            {"get": "retrieve", "put": "update", "patch": "partial_update"}
-        ),
+        ShowroomCarViewSet.as_view({"get": "retrieve", "put": "update", "patch": "partial_update"}),
     ),
     path(
         "<int:showroom_pk>/orders/",

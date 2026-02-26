@@ -7,7 +7,13 @@ from factory.django import DjangoModelFactory
 
 from users.tests.factories import UserFactory
 from dealers.models import Car, Provider, ProviderCar, ProviderOrder
-from services.choices import BodyType, UserType, EngineType, TransmissionType, OrderStatus
+from services.choices import (
+    BodyType,
+    UserType,
+    EngineType,
+    OrderStatus,
+    TransmissionType,
+)
 
 
 class CarFactory(DjangoModelFactory):
@@ -17,9 +23,7 @@ class CarFactory(DjangoModelFactory):
     engine_type = factory.fuzzy.FuzzyChoice(EngineType.values)
     transmission_type = factory.fuzzy.FuzzyChoice(TransmissionType.values)
     body_type = factory.fuzzy.FuzzyChoice(BodyType.values)
-    brand = factory.Iterator(
-        ["Toyota", "BMW", "Audi", "Mercedes", "Ford", "Honda", "Hyundai"]
-    )
+    brand = factory.Iterator(["Toyota", "BMW", "Audi", "Mercedes", "Ford", "Honda", "Hyundai"])
     model = factory.Sequence(lambda n: f"Model-{n}")
 
     year = factory.Faker("random_int", min=1990, max=date.today().year)

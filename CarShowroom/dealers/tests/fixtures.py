@@ -1,6 +1,11 @@
 import pytest
 
-from dealers.tests.factories import CarFactory, ProviderFactory, ProviderCarFactory, ProviderOrderFactory
+from dealers.tests.factories import (
+    CarFactory,
+    ProviderFactory,
+    ProviderCarFactory,
+    ProviderOrderFactory,
+)
 
 
 @pytest.fixture

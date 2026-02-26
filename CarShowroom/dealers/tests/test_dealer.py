@@ -1,8 +1,7 @@
 import pytest
-
 from rest_framework import status
 
-from services.choices import EngineType, TransmissionType, BodyType
+from services.choices import BodyType, EngineType, TransmissionType
 
 pytest_plugins = [
     "users.tests.fixtures",
@@ -102,12 +101,12 @@ class TestProviderPermissions:
         indirect=["auth_role_client"],
     )
     def test_update_provider_permissions(
-            self,
-            auth_role_client,
-            provider,
-            request,
-            owner_fixture,
-            expected_status,
+        self,
+        auth_role_client,
+        provider,
+        request,
+        owner_fixture,
+        expected_status,
     ):
         owner = request.getfixturevalue(owner_fixture)
         obj = provider(owner_user=owner)

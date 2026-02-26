@@ -1,7 +1,7 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from car_showrooms.models import CarShowroom
 from services.choices import UserType
+from car_showrooms.models import CarShowroom
 
 
 class IsProviderOrShowroom(BasePermission):
@@ -45,7 +45,6 @@ class IsProviderOrShowroomOwner(BasePermission):
         return view.provider.owner_user_id == request.user.id or hasattr(request.user, "carshowroom")
 
 
-
 class IsProviderCarOwnerOrShowroom(BasePermission):
     """Check if user is provider car owner or showroom read only"""
 
@@ -63,4 +62,20 @@ class IsShowroomOwnerUser(BasePermission):
         if request.method in ("HEAD", "OPTIONS"):
             return True
 
-        return request.user.type == UserType.SHOWROOM and CarShowroom.objects.filter(owner_user_id=request.user.id).exists()
+        return (
+            request.user.type == UserType.SHOWROOM and CarShowroom.objects.filter(owner_user_id=request.user.id).exists()
+        )
+
+
+class IsOrderShowroomOwner(BasePermission):
+    """Ensures only the showroom that created the order can modify it."""
+
+    def has_permission(self, request, view):
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+        return request.user.type == UserType.SHOWROOM
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return True
+        return hasattr(request.user, "carshowroom") and obj.showroom.owner_user_id == request.user.id
