@@ -1,3 +1,5 @@
+"""Factory classes for the users app models used in tests."""
+
 from decimal import Decimal
 
 import factory
@@ -9,7 +11,11 @@ User = get_user_model()
 
 
 class UserFactory(DjangoModelFactory):
+    """Factory for the User model."""
+
     class Meta:
+        """Factory metadata."""
+
         model = User
 
     username = factory.Sequence(lambda n: f"user{n}")

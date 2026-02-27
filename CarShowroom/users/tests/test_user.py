@@ -1,4 +1,7 @@
+"""Tests for user API permissions and business rules."""
+
 import pytest
+from django.urls import reverse
 from rest_framework import status
 from django.contrib.auth import get_user_model
 
@@ -6,15 +9,10 @@ pytest_plugins = ["users.tests.fixtures"]
 
 User = get_user_model()
 
-USERS_URL = "/api/v1/users/"
-
-
-def detail_url(user_id):
-    return f"{USERS_URL}{user_id}/"
-
 
 @pytest.mark.django_db
 class TestUserAPI:
+    """Tests for user registration, profile updates, and soft deletion."""
 
     @pytest.mark.parametrize(
         "client_fixture, expected_status",
@@ -24,8 +22,9 @@ class TestUserAPI:
         ],
     )
     def test_create_user_permissions(self, request, client_fixture, expected_status, user_payload):
+        """Allow anonymous users to register; block authenticated users."""
         client = request.getfixturevalue(client_fixture)
-        response = client.post(USERS_URL, user_payload)
+        response = client.post(reverse("user-list"), user_payload)
 
         assert response.status_code == expected_status
 
@@ -39,9 +38,10 @@ class TestUserAPI:
     def test_update_profile_permissions(
         self, auth_client, request, target_fixture, expected_status, should_update, user
     ):
+        """Allow users to update their own profile; block updates to other profiles."""
         target_user = request.getfixturevalue(target_fixture)
         payload = {"first_name": "Updated"}
-        response = auth_client.patch(detail_url(target_user.id), payload)
+        response = auth_client.patch(reverse("user-detail", args=[target_user.id]), payload)
 
         assert response.status_code == expected_status
         user.refresh_from_db()
@@ -52,18 +52,15 @@ class TestUserAPI:
             assert user.first_name != "Updated"
 
     def test_soft_delete_user(self, auth_client, user, another_user):
-        """
-        User owner can delete profile and his is_active flag will be False. Users with is_active=False not in queryset.
-        """
-
-        response = auth_client.delete(detail_url(user.id))
+        """Set is_active=False on delete; exclude the user from subsequent list results."""
+        response = auth_client.delete(reverse("user-detail", args=[user.id]))
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         user.refresh_from_db()
         assert user.is_active is False
         assert User.objects.filter(id=user.id).exists()
 
-        response = auth_client.get(USERS_URL)
+        response = auth_client.get(reverse("user-list"))
 
         assert response.status_code == status.HTTP_200_OK
         ids = [u["id"] for u in response.data]

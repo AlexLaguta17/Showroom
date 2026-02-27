@@ -1,3 +1,5 @@
+"""Factory classes for car_showrooms app models used in tests."""
+
 import random
 import datetime
 
@@ -11,7 +13,11 @@ from car_showrooms.models import Discount, CarShowroom, ShowroomCar
 
 
 class DiscountFactory(DjangoModelFactory):
+    """Factory for the Discount model."""
+
     class Meta:
+        """Factory metadata."""
+
         model = Discount
 
     name = factory.Sequence(lambda n: f"Discount Offer {n}")
@@ -30,6 +36,8 @@ class DiscountFactory(DjangoModelFactory):
     owner_user = factory.SubFactory(UserFactory, type=UserType.SHOWROOM)
 
     class Params:
+        """Factory traits."""
+
         is_expired = factory.Trait(
             date_start=factory.Faker("date_between", start_date="-60d", end_date="-31d"),
             date_end=factory.LazyAttribute(lambda o: o.date_start + datetime.timedelta(days=10)),
@@ -37,8 +45,11 @@ class DiscountFactory(DjangoModelFactory):
 
 
 class CarShowroomFactory(DjangoModelFactory):
+    """Factory for the CarShowroom model."""
 
     class Meta:
+        """Factory metadata."""
+
         model = CarShowroom
 
     name = factory.Sequence(lambda n: f"Best Cars Showroom {n}")
@@ -46,8 +57,11 @@ class CarShowroomFactory(DjangoModelFactory):
 
 
 class ShowroomCarFactory(DjangoModelFactory):
+    """Factory for the ShowroomCar through-model."""
 
     class Meta:
+        """Factory metadata."""
+
         model = ShowroomCar
 
     car = factory.SubFactory(CarFactory)
@@ -56,7 +70,7 @@ class ShowroomCarFactory(DjangoModelFactory):
     car_quantity = factory.Faker("random_int", min=1, max=10)
     price = factory.Faker(
         "pydecimal",
-        left_digits=5,  # до 99999
+        left_digits=5,
         right_digits=2,
         positive=True,
         min_value=10000,
@@ -65,4 +79,6 @@ class ShowroomCarFactory(DjangoModelFactory):
     is_published = True
 
     class Params:
+        """Factory traits."""
+
         with_discount = factory.Trait(discount=factory.SubFactory(DiscountFactory))

@@ -1,3 +1,5 @@
+"""Models for the users app: custom User extending AbstractUser."""
+
 from django.db import models
 from django_countries.fields import CountryField
 from django.core.validators import MinValueValidator
@@ -9,7 +11,7 @@ from services.choices import UserType
 
 
 class User(AbstractUser):
-    """Extended AbstractUser for realize roles of UserType.choices"""
+    """Extended AbstractUser that adds a role, balance, and contact details."""
 
     type = models.CharField(choices=UserType.choices, max_length=8, default=UserType.CUSTOMER)
     phone_number = PhoneNumberField(null=True, unique=True)
@@ -25,9 +27,10 @@ class User(AbstractUser):
     objects = UserManager()
 
     USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["password", "email"]
+    REQUIRED_FIELDS = ["email"]
 
     def save(self, *args, **kwargs):
+        """Hash the password before saving if it is stored in plain text."""
         if self.password:
             try:
                 identify_hasher(self.password)
@@ -36,4 +39,5 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
 
     def __str__(self):
+        """Return a string showing the user type and full name."""
         return f"{self.type}: {self.first_name} {self.last_name}"

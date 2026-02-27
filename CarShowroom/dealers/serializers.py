@@ -1,16 +1,17 @@
+"""Serializers for the dealer's app."""
+
 from rest_framework import serializers
 
 from services.order_service import validate_order_creation
-from dealers.models import (
-    Car,
-    Provider,
-    ProviderCar,
-    ProviderOrder,
-)
+from dealers.models import Car, Provider, ProviderCar, ProviderOrder
 
 
 class CarSerializer(serializers.ModelSerializer):
+    """Serializer for the Car model."""
+
     class Meta:
+        """Car serializer metadata."""
+
         model = Car
         fields = (
             "id",
@@ -26,13 +27,17 @@ class CarSerializer(serializers.ModelSerializer):
 
 
 class ProviderSerializer(serializers.ModelSerializer):
+    """Serializer for the Provider model."""
 
     class Meta:
+        """Provider serializer metadata."""
+
         model = Provider
         fields = "id", "name", "year_founded", "owner_user_id", "cars"
         read_only_fields = ("owner_user_id", "cars")
 
     def validate(self, attrs):
+        """Prevent a user from owning more than one provider."""
         user = self.context["request"].user
 
         if self.instance is None and Provider.objects.filter(owner_user_id=user.id).exists():
@@ -42,15 +47,21 @@ class ProviderSerializer(serializers.ModelSerializer):
 
 
 class ProviderCarSerializer(serializers.ModelSerializer):
+    """Serializer for creating and reading ProviderCar entries."""
 
     class Meta:
+        """ProviderCar serializer metadata."""
+
         model = ProviderCar
         fields = "id", "car_quantity", "price", "discount", "car"
 
 
 class UpdateProviderCarSerializer(serializers.ModelSerializer):
+    """Serializer for updating ProviderCar price, discount, and quantity."""
 
     class Meta:
+        """UpdateProviderCar serializer metadata."""
+
         model = ProviderCar
         fields = "id", "car_quantity", "price", "discount"
 
@@ -59,6 +70,8 @@ class ProviderOrderSerializer(serializers.ModelSerializer):
     """Serializer for reading provider order data."""
 
     class Meta:
+        """ProviderOrder serializer metadata."""
+
         model = ProviderOrder
         fields = (
             "id",
@@ -78,6 +91,7 @@ class ProviderOrderSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
+        """Validate order creation and compute total price."""
         provider = self.context["view"].provider
         provider_car = attrs["car"]
         car_quantity = attrs["car_quantity"]
@@ -90,10 +104,13 @@ class ProviderOrderSerializer(serializers.ModelSerializer):
 
 class ProviderOrderUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating a provider order.
+
     Allows updating only car and car_quantity fields.
     """
 
     class Meta:
+        """ProviderOrderUpdate serializer metadata."""
+
         model = ProviderOrder
         fields = (
             "id",

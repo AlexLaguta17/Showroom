@@ -1,3 +1,5 @@
+"""Tests for provider order API permissions and business logic."""
+
 from decimal import Decimal
 
 import pytest
@@ -15,32 +17,39 @@ pytest_plugins = [
 
 
 def order_list_url(provider_pk):
+    """Return the URL for listing orders of a provider."""
     return reverse("provider-order-list", kwargs={"provider_pk": provider_pk})
 
 
 def order_detail_url(provider_pk, pk):
+    """Return the URL for a single provider order detail."""
     return reverse("provider-order-detail", kwargs={"provider_pk": provider_pk, "pk": pk})
 
 
 def order_create_url(provider_pk):
+    """Return the URL for creating an order with a provider."""
     return reverse("provider-order-create", kwargs={"provider_pk": provider_pk})
 
 
 def order_confirm_url(provider_pk, pk):
+    """Return the URL for confirming a provider order."""
     return reverse("provider-order-confirm", kwargs={"provider_pk": provider_pk, "pk": pk})
 
 
 def order_reject_url(provider_pk, pk):
+    """Return the URL for rejecting a provider order."""
     return reverse("provider-order-reject", kwargs={"provider_pk": provider_pk, "pk": pk})
 
 
 def order_cancel_url(provider_pk, pk):
+    """Return the URL for cancelling a provider order."""
     return reverse("provider-order-cancel", kwargs={"provider_pk": provider_pk, "pk": pk})
 
 
 @pytest.mark.django_db
 class TestProviderOrder:
-    """
+    """Tests for provider order access rules and business logic.
+
     Access rules:
     - Create: only showroom owners (type=SHOWROOM with an associated CarShowroom row)
     - List/Detail: provider owner sees all orders addressed to them;
@@ -66,6 +75,7 @@ class TestProviderOrder:
         provider_car,
         expected_status,
     ):
+        """Allow only showroom owners to create orders; block providers, customers, and anonymous."""
         my_provider = provider()
         my_car = provider_car(provider=my_provider, car_quantity=10)
 
@@ -77,6 +87,7 @@ class TestProviderOrder:
         assert response.status_code == expected_status
 
     def test_create_sets_provider_showroom_and_price(self, client, provider, showroom, provider_car, showroom_user):
+        """Verify that provider, showroom, and total_price are set automatically on creation."""
         my_provider = provider()
         my_showroom = showroom(owner_user=showroom_user)
         my_car = provider_car(provider=my_provider, car_quantity=10, price=Decimal("30000.00"))
@@ -107,6 +118,7 @@ class TestProviderOrder:
         quantity_ordered,
         wrong_provider,
     ):
+        """Reject orders where the car belongs to a different provider or stock is insufficient."""
         provider_a = provider()
         showroom(owner_user=showroom_user)
         car_provider = provider() if wrong_provider else provider_a
@@ -140,6 +152,7 @@ class TestProviderOrder:
         showroom,
         expected_status,
     ):
+        """Allow provider owners and their showroom clients to list orders; block others."""
         force_user = getattr(auth_role_client.handler, "_force_user", None)
         my_provider = provider(owner_user=force_user) if is_provider_owner else provider()
 
@@ -167,6 +180,7 @@ class TestProviderOrder:
         provider_order,
         sees_both,
     ):
+        """Verify that showrooms see only their own orders while providers see all."""
         my_provider = provider(owner_user=provider_user)
         showroom_b_user = UserFactory(type=UserType.SHOWROOM)
 
@@ -188,8 +202,6 @@ class TestProviderOrder:
         [
             ("provider_user", True, False, False, status.HTTP_200_OK),
             ("showroom_user", False, True, True, status.HTTP_200_OK),
-            # Other showroom passes has_permission (hasattr check) but gets 404
-            # because the queryset excludes orders it didn't place.
             ("showroom_user", False, True, False, status.HTTP_404_NOT_FOUND),
             ("user", False, False, False, status.HTTP_403_FORBIDDEN),
             (None, False, False, False, status.HTTP_401_UNAUTHORIZED),
@@ -207,6 +219,7 @@ class TestProviderOrder:
         provider_order,
         expected_status,
     ):
+        """Allow provider owners and order-owning showrooms to see the detail; block others."""
         force_user = getattr(auth_role_client.handler, "_force_user", None)
         my_provider = provider(owner_user=force_user) if is_provider_owner else provider()
 
@@ -239,6 +252,7 @@ class TestProviderOrder:
         provider_order,
         expected_status,
     ):
+        """Allow only the order-owning showroom to update the order."""
         my_provider = provider()
         my_car = provider_car(provider=my_provider, car_quantity=10)
 
@@ -271,6 +285,7 @@ class TestProviderOrder:
         quantity,
         expected_total,
     ):
+        """Verify that updating car_quantity correctly recalculates total_price with discount."""
         my_provider = provider()
         my_showroom = showroom(owner_user=showroom_user)
 
@@ -309,6 +324,7 @@ class TestProviderOrder:
         quantity_ordered,
         wrong_provider,
     ):
+        """Reject order updates where car belongs to wrong provider or stock is insufficient."""
         my_provider = provider()
         my_showroom = showroom(owner_user=showroom_user)
         original_car = provider_car(provider=my_provider, car_quantity=10)
@@ -343,6 +359,7 @@ class TestProviderOrder:
         order_status,
         expected_status,
     ):
+        """Allow updates only for PENDING orders; reject COMPLETED and REJECTED."""
         my_provider = provider()
         my_showroom = showroom(owner_user=showroom_user)
         my_car = provider_car(provider=my_provider, car_quantity=10)
@@ -376,13 +393,13 @@ class TestProviderOrder:
         provider_order,
         expected_status,
     ):
+        """Allow only the provider owner to confirm or reject orders."""
         force_user = getattr(auth_role_client.handler, "_force_user", None)
         my_provider = provider(owner_user=force_user) if is_provider_owner else provider()
 
         if needs_showroom and force_user:
             showroom(owner_user=force_user)
 
-        # Setup a completable order: showroom with sufficient balance and adequate stock
         order_showroom_user = UserFactory(type=UserType.SHOWROOM, balance=Decimal("50000.00"))
         order_showroom = showroom(owner_user=order_showroom_user)
         my_car = provider_car(provider=my_provider, car_quantity=5, price=Decimal("100.00"))
@@ -415,6 +432,7 @@ class TestProviderOrder:
         provider_order,
         expected_status,
     ):
+        """Allow only the order-owning showroom to cancel; block providers and others."""
         force_user = getattr(auth_role_client.handler, "_force_user", None)
         my_provider = provider()
         my_car = provider_car(provider=my_provider, car_quantity=10)
@@ -436,6 +454,7 @@ class TestProviderOrder:
         provider_order,
         provider_user,
     ):
+        """Verify that confirming an order transfers balances, adjusts stock, and creates ShowroomCar."""
         from car_showrooms.models import ShowroomCar
 
         my_provider = provider(owner_user=provider_user)
@@ -470,8 +489,7 @@ class TestProviderOrder:
 
     @staticmethod
     def _setup_action_order(user_fixture, request, provider, showroom, provider_car, provider_order, **order_kwargs):
-        """
-        Create a PENDING order with correct provider/showroom ownership for the given user fixture.
+        """Create a PENDING order with correct provider/showroom ownership for the given user fixture.
 
         provider_user → owns the provider, a separate showroom is created for the order.
         showroom_user → owns the order's showroom, a separate provider is created.
@@ -508,6 +526,7 @@ class TestProviderOrder:
         provider_order,
         request,
     ):
+        """Verify that reject sets REJECTED and cancel sets CANCELLED status."""
         auth_user, my_provider, order = self._setup_action_order(
             user_fixture, request, provider, showroom, provider_car, provider_order
         )
@@ -543,6 +562,7 @@ class TestProviderOrder:
         provider_order,
         request,
     ):
+        """Reject confirm/reject/cancel actions on non-PENDING orders."""
         auth_user, my_provider, order = self._setup_action_order(
             user_fixture, request, provider, showroom, provider_car, provider_order, status=initial_order_status
         )

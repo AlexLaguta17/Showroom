@@ -1,3 +1,5 @@
+"""Factory classes for dealers app models used in tests."""
+
 from datetime import date
 from decimal import Decimal
 
@@ -17,7 +19,11 @@ from services.choices import (
 
 
 class CarFactory(DjangoModelFactory):
+    """Factory for the Car model."""
+
     class Meta:
+        """Factory metadata."""
+
         model = Car
 
     engine_type = factory.fuzzy.FuzzyChoice(EngineType.values)
@@ -40,7 +46,11 @@ class CarFactory(DjangoModelFactory):
 
 
 class ProviderFactory(DjangoModelFactory):
+    """Factory for the Provider model."""
+
     class Meta:
+        """Factory metadata."""
+
         model = Provider
 
     name = factory.Faker("company")
@@ -50,9 +60,11 @@ class ProviderFactory(DjangoModelFactory):
 
 
 class ProviderCarFactory(DjangoModelFactory):
-    """Фабрика для промежуточной модели ProviderCar"""
+    """Factory for the ProviderCar through-model."""
 
     class Meta:
+        """Factory metadata."""
+
         model = ProviderCar
 
     car = factory.SubFactory(CarFactory)
@@ -70,7 +82,11 @@ class ProviderCarFactory(DjangoModelFactory):
 
 
 class ProviderOrderFactory(DjangoModelFactory):
+    """Factory for the ProviderOrder model."""
+
     class Meta:
+        """Factory metadata."""
+
         model = ProviderOrder
 
     provider = factory.SubFactory(ProviderFactory)

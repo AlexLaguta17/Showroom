@@ -7,11 +7,12 @@ including price calculation, order validation, and order completion.
 
 from decimal import Decimal
 
+from django.db import transaction
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from users.models import User
 from services.choices import OrderStatus
-from car_showrooms.models import CarShowroom, ShowroomCar
+from car_showrooms.models import ShowroomCar
 from dealers.models import Provider, ProviderCar, ProviderOrder
 
 
@@ -45,7 +46,7 @@ def validate_balance(user: User, total_price: Decimal) -> None:
 
 
 def validate_car_provider(provider_car: ProviderCar, provider: Provider) -> None:
-    """Validate that provider actually has this provider_car"""
+    """Validate that provider actually has this provider_car."""
     if provider_car.provider.id != provider.id:
         raise DRFValidationError(
             {
@@ -64,7 +65,6 @@ def validate_order_status(order: ProviderOrder, *expected_statuses: OrderStatus)
 
 def validate_order_creation(provider_car: ProviderCar, car_quantity: int, provider: Provider) -> Decimal:
     """Validate order creation requirements and calculate total price."""
-
     validate_car_provider(provider_car, provider)
     validate_car_quantity(provider_car, car_quantity)
     total_price = calculate_order_price(provider_car, car_quantity)
@@ -74,8 +74,6 @@ def validate_order_creation(provider_car: ProviderCar, car_quantity: int, provid
 
 def complete_order(order: ProviderOrder) -> None:
     """Complete an order: transfer money, update inventories, change status."""
-    from django.db import transaction
-
     validate_order_status(order, OrderStatus.PENDING)
 
     with transaction.atomic():
@@ -112,8 +110,6 @@ def complete_order(order: ProviderOrder) -> None:
 
 def reject_order(order: ProviderOrder) -> None:
     """Reject an order (provider action)."""
-    from django.db import transaction
-
     with transaction.atomic():
         order = ProviderOrder.objects.select_for_update().get(pk=order.pk)
         validate_order_status(order, OrderStatus.PENDING)
@@ -123,8 +119,6 @@ def reject_order(order: ProviderOrder) -> None:
 
 def cancel_order(order: ProviderOrder) -> None:
     """Cancel an order (showroom action)."""
-    from django.db import transaction
-
     with transaction.atomic():
         order = ProviderOrder.objects.select_for_update().get(pk=order.pk)
         validate_order_status(order, OrderStatus.PENDING)

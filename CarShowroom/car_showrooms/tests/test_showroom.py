@@ -1,4 +1,7 @@
+"""Tests for car showroom API permissions and business rules."""
+
 import pytest
+from django.urls import reverse
 from rest_framework import status
 
 pytest_plugins = [
@@ -7,32 +10,11 @@ pytest_plugins = [
     "dealers.tests.fixtures",
 ]
 
-BASE_URL = "/api/v1/showrooms/"
-
-
-def showroom_detail_url(showroom_id):
-    return f"{BASE_URL}{showroom_id}/"
-
-
-def showroom_cars_url(showroom_id):
-    return f"{BASE_URL}{showroom_id}/cars/"
-
-
-def showroom_car_detail_url(showroom_id, car_id):
-    return f"{BASE_URL}{showroom_id}/cars/{car_id}/"
-
-
-def showroom_discounts_url(showroom_id):
-    return f"{BASE_URL}{showroom_id}/discounts/"
-
-
-def showroom_discount_detail_url(showroom_id, discount_id):
-    return f"{BASE_URL}{showroom_id}/discounts/{discount_id}/"
-
 
 @pytest.mark.django_db
 class TestCarShowroomPermissions:
-    """
+    """Tests for showroom creation and update permissions.
+
     1. Creation rule (type=SHOWROOM + only one showroom)
     2. Update only by owner_user
     """
@@ -55,13 +37,14 @@ class TestCarShowroomPermissions:
         has_existing_showroom,
         expected_status,
     ):
+        """Allow SHOWROOM users to create exactly one showroom; block duplicates and other roles."""
         user = request.getfixturevalue(user_fixture)
 
         if has_existing_showroom:
             showroom(owner_user=user)
         client.force_authenticate(user=user)
 
-        response = client.post(BASE_URL, {"name": "New Showroom"})
+        response = client.post(reverse("showroom-list"), {"name": "New Showroom"})
 
         assert response.status_code == expected_status
         if expected_status == status.HTTP_201_CREATED:
@@ -76,15 +59,15 @@ class TestCarShowroomPermissions:
         ],
     )
     def test_update_showroom_permissions(self, client, showroom, showroom_user, another_user, role, expected_status):
+        """Allow only the showroom owner to update; block strangers and anonymous users."""
         obj = showroom(owner_user=showroom_user, name="Old Name")
-        url = showroom_detail_url(obj.id)
 
         if role == "owner":
             client.force_authenticate(user=showroom_user)
         elif role == "stranger":
             client.force_authenticate(user=another_user)
 
-        response = client.patch(url, {"name": "Updated Name"})
+        response = client.patch(reverse("showroom-detail", args=[obj.id]), {"name": "Updated Name"})
 
         assert response.status_code == expected_status
         if expected_status == status.HTTP_200_OK:
@@ -94,7 +77,7 @@ class TestCarShowroomPermissions:
 
 @pytest.mark.django_db
 class TestShowroomCarPermissions:
-    """Only owner_user can update ShowroomCar"""
+    """Tests for showroom car update and list filtering permissions."""
 
     @pytest.mark.parametrize(
         "role, expected_status",
@@ -114,17 +97,19 @@ class TestShowroomCarPermissions:
         role,
         expected_status,
     ):
+        """Allow only the showroom owner to update car entries."""
         my_showroom = showroom(owner_user=showroom_user)
         car_entry = showroom_car(showroom=my_showroom)
-
-        url = showroom_car_detail_url(my_showroom.id, car_entry.id)
 
         if role == "owner":
             client.force_authenticate(user=showroom_user)
         elif role == "stranger":
             client.force_authenticate(user=another_user)
 
-        response = client.patch(url, {"price": "15000.00"})
+        response = client.patch(
+            reverse("showroom-car-detail", args=[my_showroom.id, car_entry.id]),
+            {"price": "15000.00"},
+        )
 
         assert response.status_code == expected_status
         if expected_status == status.HTTP_200_OK:
@@ -139,6 +124,7 @@ class TestShowroomCarPermissions:
         ],
     )
     def test_showroom_car_queryset_filtering(self, client, showroom, showroom_car, showroom_user, role, expected_count):
+        """Return only published, in-stock, priced cars to the public; return all to the owner."""
         my_showroom = showroom(owner_user=showroom_user)
 
         showroom_car(
@@ -152,12 +138,10 @@ class TestShowroomCarPermissions:
         showroom_car(showroom=my_showroom, car_quantity=0)
         showroom_car(showroom=my_showroom, is_published=False)
 
-        url = showroom_cars_url(my_showroom.id)
-
         if role == "owner":
             client.force_authenticate(user=showroom_user)
 
-        response = client.get(url)
+        response = client.get(reverse("showroom-car-list", args=[my_showroom.id]))
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == expected_count
@@ -165,7 +149,7 @@ class TestShowroomCarPermissions:
 
 @pytest.mark.django_db
 class TestShowroomDiscountPermissions:
-    """Only owner_user can create & update discounts"""
+    """Tests for showroom discount create and update permissions."""
 
     @pytest.mark.parametrize(
         "role, expected_status",
@@ -183,8 +167,8 @@ class TestShowroomDiscountPermissions:
         role,
         expected_status,
     ):
+        """Allow only the showroom owner to create discounts."""
         my_showroom = showroom()
-        url = showroom_discounts_url(my_showroom.id)
 
         payload = {
             "name": "Summer Sale",
@@ -196,7 +180,7 @@ class TestShowroomDiscountPermissions:
         elif role == "stranger":
             client.force_authenticate(user=another_user)
 
-        response = client.post(url, payload)
+        response = client.post(reverse("showroom-discount-list", args=[my_showroom.id]), payload)
 
         assert response.status_code == expected_status
         if expected_status == status.HTTP_201_CREATED:
@@ -220,17 +204,19 @@ class TestShowroomDiscountPermissions:
         role,
         expected_status,
     ):
+        """Allow only the discount owner to update; block strangers and anonymous users."""
         my_showroom = showroom(owner_user=showroom_user)
         my_discount = discount(owner_user=showroom_user)
-
-        url = showroom_discount_detail_url(my_showroom.id, my_discount.id)
 
         if role == "owner":
             client.force_authenticate(user=showroom_user)
         elif role == "stranger":
             client.force_authenticate(user=another_user)
 
-        response = client.patch(url, {"percent": "30.00"})
+        response = client.patch(
+            reverse("showroom-discount-detail", args=[my_showroom.id, my_discount.id]),
+            {"percent": "30.00"},
+        )
 
         assert response.status_code == expected_status
         if expected_status == status.HTTP_200_OK:

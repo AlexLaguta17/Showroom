@@ -1,11 +1,8 @@
+"""Admin registration for the dealers app models."""
+
 from django.contrib import admin
 
-from dealers.models import (
-    Car,
-    Provider,
-    ProviderCar,
-    ProviderOrder,
-)
+from dealers.models import Car, Provider, ProviderCar, ProviderOrder
 
 admin.site.register(Car)
 admin.site.register(Provider)
