@@ -12,14 +12,19 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from users.models import User
 from services.choices import OrderStatus
-from car_showrooms.models import ShowroomCar
+from car_showrooms.models import CarShowroom, ShowroomCar
 from dealers.models import Provider, ProviderCar, ProviderOrder
 
 
+def check_car_order_price(car: ProviderCar | ShowroomCar) -> None:
+    """Check if car order price is correct."""
+    if car.price == Decimal("0.0"):
+        raise DRFValidationError({"detail": "This car is not for sale yet"})
+
+
 def calculate_order_price(provider_car: ProviderCar, car_quantity: int) -> Decimal:
-    """Calculate total order price with discount applied."""
-    if provider_car.price is None:
-        raise DRFValidationError("ProviderCar price must be set")
+    """Calculate total provider order price with discount applied."""
+    check_car_order_price(provider_car)
 
     unit_price = provider_car.price
     discount_percent = Decimal("0")
@@ -31,6 +36,20 @@ def calculate_order_price(provider_car: ProviderCar, car_quantity: int) -> Decim
     total_price = discounted_unit_price * car_quantity
 
     return total_price.quantize(Decimal("0.01"))
+
+
+def calculate_price_with_discount(showroom_car: ShowroomCar) -> Decimal:
+    """Calculate total showroom order price with discount applied."""
+    check_car_order_price(showroom_car)
+
+    discount_percent = Decimal("0")
+
+    if showroom_car.discount:
+        discount_percent = showroom_car.discount.percent
+
+    price_with_discount = showroom_car.price * (1 - discount_percent / Decimal("100"))
+
+    return price_with_discount.quantize(Decimal("0.01"))
 
 
 def validate_car_quantity(provider_car: ProviderCar, order_car_quantity: int) -> None:
@@ -56,6 +75,23 @@ def validate_car_provider(provider_car: ProviderCar, provider: Provider) -> None
         )
 
 
+def validate_car_showroom(showroom_car: ShowroomCar, showroom: CarShowroom) -> None:
+    """Validate that showroom actually has this showroom_car."""
+    if not showroom_car.is_published:
+        raise DRFValidationError({"detail": "This car is not published"})
+
+    if showroom_car.showroom.id != showroom.id:
+        raise DRFValidationError(
+            {
+                "detail": f"Car {showroom_car.car.brand} {showroom_car.car.model} "
+                f"does not belong to the car showroom {showroom.name}"
+            }
+        )
+
+    if showroom_car.car_quantity < 1:
+        raise DRFValidationError({"detail": "Showroom doesn't have sufficient quantity of cars"})
+
+
 def validate_order_status(order: ProviderOrder, *expected_statuses: OrderStatus) -> None:
     """Validate that order has the expected status."""
     if order.status not in expected_statuses:
@@ -63,13 +99,21 @@ def validate_order_status(order: ProviderOrder, *expected_statuses: OrderStatus)
         raise DRFValidationError(f"Order status must be: {allowed}")
 
 
-def validate_order_creation(provider_car: ProviderCar, car_quantity: int, provider: Provider) -> Decimal:
+def validate_provider_order_creation(provider_car: ProviderCar, car_quantity: int, provider: Provider) -> Decimal:
     """Validate order creation requirements and calculate total price."""
     validate_car_provider(provider_car, provider)
     validate_car_quantity(provider_car, car_quantity)
     total_price = calculate_order_price(provider_car, car_quantity)
 
     return total_price
+
+
+def validate_showroom_order_creation(showroom: CarShowroom, showroom_car: ShowroomCar) -> Decimal:
+    """Validate order creation requirements and calculate price with discount."""
+    validate_car_showroom(showroom_car, showroom)
+    price_with_discount = calculate_price_with_discount(showroom_car)
+
+    return price_with_discount
 
 
 def complete_order(order: ProviderOrder) -> None:
@@ -131,7 +175,7 @@ def update_provider_order(order: ProviderOrder, provider_car: ProviderCar, car_q
     validate_order_status(order, OrderStatus.PENDING)
 
     if provider_car != order.car or car_quantity != order.car_quantity:
-        total_price = validate_order_creation(
+        total_price = validate_provider_order_creation(
             provider_car,
             car_quantity,
             order.provider,

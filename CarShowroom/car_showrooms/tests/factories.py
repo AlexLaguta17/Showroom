@@ -6,10 +6,10 @@ import datetime
 import factory
 from factory.django import DjangoModelFactory
 
-from services.choices import UserType
 from users.tests.factories import UserFactory
 from dealers.tests.factories import CarFactory
-from car_showrooms.models import Discount, CarShowroom, ShowroomCar
+from services.choices import UserType, OrderStatus
+from car_showrooms.models import Discount, CarShowroom, ShowroomCar, CarShowroomOrder
 
 
 class DiscountFactory(DjangoModelFactory):
@@ -82,3 +82,18 @@ class ShowroomCarFactory(DjangoModelFactory):
         """Factory traits."""
 
         with_discount = factory.Trait(discount=factory.SubFactory(DiscountFactory))
+
+
+class CarShowroomOrderFactory(DjangoModelFactory):
+    """Factory for the CarShowroomOrder model."""
+
+    class Meta:
+        """Factory metadata."""
+
+        model = CarShowroomOrder
+
+    showroom = factory.SubFactory(CarShowroomFactory)
+    car_buyer = factory.SubFactory(UserFactory, type=UserType.CUSTOMER)
+    car = factory.SubFactory(ShowroomCarFactory, showroom=factory.SelfAttribute("..showroom"))
+    status = OrderStatus.PENDING
+    price = factory.Faker("pydecimal", left_digits=5, right_digits=2, positive=True, min_value=10000, max_value=90000)

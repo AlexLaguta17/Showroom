@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from services.order_service import validate_order_creation
+from services.order_service import validate_provider_order_creation
 from dealers.models import Car, Provider, ProviderCar, ProviderOrder
 
 
@@ -96,7 +96,7 @@ class ProviderOrderSerializer(serializers.ModelSerializer):
         provider_car = attrs["car"]
         car_quantity = attrs["car_quantity"]
 
-        total_price = validate_order_creation(provider_car, car_quantity, provider)
+        total_price = validate_provider_order_creation(provider_car, car_quantity, provider)
 
         attrs["total_price"] = total_price
         return attrs

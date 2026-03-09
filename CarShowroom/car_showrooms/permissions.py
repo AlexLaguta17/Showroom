@@ -57,31 +57,22 @@ class IsDiscountOwner(BasePermission):
 
 
 class IsOrderViewer(BasePermission):
-    """Control order visibility.
-
-    GET access:
-    - Showroom owner: orders of his showroom
-    - Customer: only his orders
-    """
+    """Control order visibility."""
 
     def has_permission(self, request, view):
         """Block providers from accessing showroom orders entirely."""
-        if request.user.type == UserType.PROVIDER:
-            return False
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
 
-        return True
+        return request.user.type in (UserType.SHOWROOM, UserType.CUSTOMER)
 
-    def has_object_permission(self, request, view, obj):
-        """Restrict order detail access to the relevant showroom owner or customer."""
+
+class IsCustomer(BasePermission):
+    """Allow only to UserType.CUSTOMER."""
+
+    def has_permission(self, request, view):
+        """Allow customer access."""
         if request.method in SAFE_METHODS:
             return True
 
-        user = request.user
-
-        if user.type == UserType.SHOWROOM:
-            return obj.showroom.owner_user.id == user.id
-
-        if user.type == UserType.CUSTOMER:
-            return obj.car_buyer.id == user.id
-
-        return False
+        return request.user.type == UserType.CUSTOMER

@@ -1,10 +1,12 @@
 """API views for the car_showrooms app."""
 
-from rest_framework import viewsets
+from rest_framework import generics, viewsets
+from rest_framework.permissions import IsAuthenticated
 
-from car_showrooms.mixins import CarShowroomContextMixin
 from car_showrooms.models import Discount, CarShowroom, ShowroomCar
+from car_showrooms.mixins import BaseShowroomOrderMixin, CarShowroomContextMixin
 from car_showrooms.permissions import (
+    IsCustomer,
     IsDiscountOwner,
     IsCarShowroomOwner,
     IsShowroomCarOwner,
@@ -13,6 +15,7 @@ from car_showrooms.serializers import (
     DiscountSerializer,
     CarShowroomSerializer,
     ShowroomCarSerializer,
+    ShowroomOrderSerializer,
 )
 
 
@@ -58,3 +61,22 @@ class ShowroomDiscountViewSet(CarShowroomContextMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Save the discount with the requesting user as owner."""
         serializer.save(owner_user_id=self.request.user.id)
+
+
+class ShowroomOrderListAPIView(BaseShowroomOrderMixin, generics.ListAPIView):
+    """API for showroom list orders."""
+
+
+class ShowroomOrderDetailAPIView(BaseShowroomOrderMixin, generics.RetrieveAPIView):
+    """API for showroom detail orders."""
+
+
+class ShowroomOrderCreateAPIView(CarShowroomContextMixin, generics.CreateAPIView):
+    """API for creating showroom orders. Only UserType.CUSTOMER can create orders."""
+
+    serializer_class = ShowroomOrderSerializer
+    permission_classes = (IsAuthenticated, IsCustomer)
+
+    def perform_create(self, serializer):
+        """Save the showroom order with the requesting user as car buyer."""
+        serializer.save(showroom_id=self.showroom.id, car_buyer_id=self.request.user.id)

@@ -6,6 +6,7 @@ from car_showrooms.tests.factories import (
     DiscountFactory,
     CarShowroomFactory,
     ShowroomCarFactory,
+    CarShowroomOrderFactory,
 )
 
 pytest_plugins = ["users.tests.fixtures", "dealers.tests.fixtures"]
@@ -42,3 +43,14 @@ def showroom_car():
         return ShowroomCarFactory(**kwargs)
 
     return _create_showroom_car
+
+
+@pytest.fixture
+def showroom_order():
+    """Return a factory function for creating CarShowroomOrder instances."""
+
+    def _create_showroom_order(**kwargs):
+        """Create and return a CarShowroomOrder instance."""
+        return CarShowroomOrderFactory(**kwargs)
+
+    return _create_showroom_order

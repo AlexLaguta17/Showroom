@@ -6,6 +6,9 @@ from car_showrooms.api.v1.views import (
     ShowroomViewSet,
     ShowroomCarViewSet,
     ShowroomDiscountViewSet,
+    ShowroomOrderListAPIView,
+    ShowroomOrderCreateAPIView,
+    ShowroomOrderDetailAPIView,
 )
 
 LIST_CREATE_ACTIONS = {"get": "list", "post": "create"}
@@ -34,5 +37,20 @@ urlpatterns = [
         "<int:showroom_pk>/discounts/<int:pk>/",
         ShowroomDiscountViewSet.as_view(RETRIEVE_UPDATE_DESTROY_ACTIONS),
         name="showroom-discount-detail",
+    ),
+    path(
+        "<int:showroom_pk>/orders/",
+        ShowroomOrderListAPIView.as_view(),
+        name="showroom-order-list",
+    ),
+    path(
+        "<int:showroom_pk>/orders/<int:pk>/",
+        ShowroomOrderDetailAPIView.as_view(),
+        name="showroom-order-detail",
+    ),
+    path(
+        "<int:showroom_pk>/create-orders/",
+        ShowroomOrderCreateAPIView.as_view(),
+        name="showroom-order-create",
     ),
 ]
