@@ -6,9 +6,11 @@ from car_showrooms.api.v1.views import (
     ShowroomViewSet,
     ShowroomCarViewSet,
     ShowroomDiscountViewSet,
-    ShowroomOrderListAPIView,
-    ShowroomOrderCreateAPIView,
+    ShowroomOrderCancelAPIView,
     ShowroomOrderDetailAPIView,
+    ShowroomOrderRejectAPIView,
+    ShowroomOrderConfirmAPIView,
+    ShowroomOrderListCreateAPIView,
 )
 
 LIST_CREATE_ACTIONS = {"get": "list", "post": "create"}
@@ -40,8 +42,8 @@ urlpatterns = [
     ),
     path(
         "<int:showroom_pk>/orders/",
-        ShowroomOrderListAPIView.as_view(),
-        name="showroom-order-list",
+        ShowroomOrderListCreateAPIView.as_view(),
+        name="showroom-order-list-create",
     ),
     path(
         "<int:showroom_pk>/orders/<int:pk>/",
@@ -49,8 +51,18 @@ urlpatterns = [
         name="showroom-order-detail",
     ),
     path(
-        "<int:showroom_pk>/create-orders/",
-        ShowroomOrderCreateAPIView.as_view(),
-        name="showroom-order-create",
+        "<int:showroom_pk>/orders/<int:pk>/confirm/",
+        ShowroomOrderConfirmAPIView.as_view(),
+        name="showroom-order-confirm",
+    ),
+    path(
+        "<int:showroom_pk>/orders/<int:pk>/reject/",
+        ShowroomOrderRejectAPIView.as_view(),
+        name="showroom-order-reject",
+    ),
+    path(
+        "<int:showroom_pk>/orders/<int:pk>/cancel/",
+        ShowroomOrderCancelAPIView.as_view(),
+        name="showroom-order-cancel",
     ),
 ]

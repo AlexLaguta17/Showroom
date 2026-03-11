@@ -73,13 +73,3 @@ class ShowroomOrderSerializer(serializers.ModelSerializer):
         price = validate_showroom_order_creation(showroom, showroom_car)
         attrs["price"] = price
         return attrs
-
-
-class ShowroomOrderWriteSerializer(serializers.ModelSerializer):
-    """Serializer for creating a CarShowroomOrder."""
-
-    class Meta:
-        """ShowroomOrder write serializer metadata."""
-
-        model = CarShowroomOrder
-        fields = "id", "car"

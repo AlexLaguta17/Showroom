@@ -18,7 +18,7 @@ pytest_plugins = [
 
 def order_list_url(provider_pk):
     """Return the URL for listing orders of a provider."""
-    return reverse("provider-order-list", kwargs={"provider_pk": provider_pk})
+    return reverse("provider-order-list-create", kwargs={"provider_pk": provider_pk})
 
 
 def order_detail_url(provider_pk, pk):
@@ -28,7 +28,7 @@ def order_detail_url(provider_pk, pk):
 
 def order_create_url(provider_pk):
     """Return the URL for creating an order with a provider."""
-    return reverse("provider-order-create", kwargs={"provider_pk": provider_pk})
+    return reverse("provider-order-list-create", kwargs={"provider_pk": provider_pk})
 
 
 def order_confirm_url(provider_pk, pk):

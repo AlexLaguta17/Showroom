@@ -12,8 +12,8 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from users.models import User
 from services.choices import OrderStatus
-from car_showrooms.models import CarShowroom, ShowroomCar
 from dealers.models import Provider, ProviderCar, ProviderOrder
+from car_showrooms.models import CarShowroom, ShowroomCar, CarShowroomOrder
 
 
 def check_car_order_price(car: ProviderCar | ShowroomCar) -> None:
@@ -61,7 +61,7 @@ def validate_car_quantity(provider_car: ProviderCar, order_car_quantity: int) ->
 def validate_balance(user: User, total_price: Decimal) -> None:
     """Validate that user has sufficient balance."""
     if user.balance < total_price:
-        raise DRFValidationError({"detail": "You don't have enough balance to order"})
+        raise DRFValidationError({"detail": "Car buyer doesn't have sufficient balance"})
 
 
 def validate_car_provider(provider_car: ProviderCar, provider: Provider) -> None:
@@ -77,8 +77,8 @@ def validate_car_provider(provider_car: ProviderCar, provider: Provider) -> None
 
 def validate_car_showroom(showroom_car: ShowroomCar, showroom: CarShowroom) -> None:
     """Validate that showroom actually has this showroom_car."""
-    if not showroom_car.is_published:
-        raise DRFValidationError({"detail": "This car is not published"})
+    if not showroom_car.is_published or showroom_car.car_quantity < 1:
+        raise DRFValidationError({"detail": "This car is not for sale"})
 
     if showroom_car.showroom.id != showroom.id:
         raise DRFValidationError(
@@ -92,11 +92,11 @@ def validate_car_showroom(showroom_car: ShowroomCar, showroom: CarShowroom) -> N
         raise DRFValidationError({"detail": "Showroom doesn't have sufficient quantity of cars"})
 
 
-def validate_order_status(order: ProviderOrder, *expected_statuses: OrderStatus) -> None:
+def validate_order_status(order: ProviderOrder | CarShowroomOrder, *expected_statuses: OrderStatus) -> None:
     """Validate that order has the expected status."""
     if order.status not in expected_statuses:
         allowed = ", ".join(str(expected_status) for expected_status in expected_statuses)
-        raise DRFValidationError(f"Order status must be: {allowed}")
+        raise DRFValidationError({"detail": f"Order status must be: {allowed}"})
 
 
 def validate_provider_order_creation(provider_car: ProviderCar, car_quantity: int, provider: Provider) -> Decimal:
@@ -152,22 +152,47 @@ def complete_order(order: ProviderOrder) -> None:
         order.save()
 
 
-def reject_order(order: ProviderOrder) -> None:
+def change_order_status(order: CarShowroomOrder | ProviderOrder, new_status: OrderStatus) -> None:
+    """Service function for changing order status."""
+    with transaction.atomic():
+        order = order.__class__.objects.select_for_update().get(pk=order.pk)
+        validate_order_status(order, OrderStatus.PENDING)
+        order.status = new_status
+        order.save(update_fields=["status"])
+
+
+def reject_order(order: ProviderOrder | CarShowroomOrder) -> None:
     """Reject an order (provider action)."""
-    with transaction.atomic():
-        order = ProviderOrder.objects.select_for_update().get(pk=order.pk)
-        validate_order_status(order, OrderStatus.PENDING)
-        order.status = OrderStatus.REJECTED
-        order.save()
+    change_order_status(order, OrderStatus.REJECTED)
 
 
-def cancel_order(order: ProviderOrder) -> None:
+def cancel_order(order: ProviderOrder | CarShowroomOrder) -> None:
     """Cancel an order (showroom action)."""
+    change_order_status(order, OrderStatus.CANCELLED)
+
+
+def confirm_showroom_order(order: CarShowroomOrder) -> None:
+    """Confirm a showroom order: transfer funds, decrement inventory, set status COMPLETED."""
     with transaction.atomic():
-        order = ProviderOrder.objects.select_for_update().get(pk=order.pk)
+        order = CarShowroomOrder.objects.select_for_update().get(pk=order.pk)
         validate_order_status(order, OrderStatus.PENDING)
-        order.status = OrderStatus.CANCELLED
-        order.save()
+
+        showroom = order.showroom
+        showroom_car = ShowroomCar.objects.select_for_update().get(pk=order.car_id)
+        customer = User.objects.select_for_update().get(pk=order.car_buyer_id)
+        showroom_owner = User.objects.select_for_update().get(pk=showroom.owner_user_id)
+
+        validate_car_showroom(showroom_car, showroom)
+        validate_balance(customer, order.price)
+
+        customer.balance -= order.price
+        customer.save()
+        showroom_owner.balance += order.price
+        showroom_owner.save()
+        showroom_car.car_quantity -= 1
+        showroom_car.save()
+        order.status = OrderStatus.COMPLETED
+        order.save(update_fields=["status"])
 
 
 def update_provider_order(order: ProviderOrder, provider_car: ProviderCar, car_quantity: int) -> None:

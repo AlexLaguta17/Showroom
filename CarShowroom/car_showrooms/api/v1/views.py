@@ -1,21 +1,26 @@
 """API views for the car_showrooms app."""
 
-from rest_framework import generics, viewsets
+from rest_framework.response import Response
+from rest_framework import status, generics, viewsets
 from rest_framework.permissions import IsAuthenticated
 
 from car_showrooms.models import Discount, CarShowroom, ShowroomCar
 from car_showrooms.mixins import BaseShowroomOrderMixin, CarShowroomContextMixin
-from car_showrooms.permissions import (
-    IsCustomer,
-    IsDiscountOwner,
-    IsCarShowroomOwner,
-    IsShowroomCarOwner,
-)
+from services.order_service import cancel_order, reject_order, confirm_showroom_order
 from car_showrooms.serializers import (
     DiscountSerializer,
     CarShowroomSerializer,
     ShowroomCarSerializer,
     ShowroomOrderSerializer,
+)
+from car_showrooms.permissions import (
+    IsCustomer,
+    IsOrderViewer,
+    IsDiscountOwner,
+    IsOrderCarBuyer,
+    IsShowroomOwner,
+    IsCarShowroomOwner,
+    IsShowroomCarOwner,
 )
 
 
@@ -63,20 +68,55 @@ class ShowroomDiscountViewSet(CarShowroomContextMixin, viewsets.ModelViewSet):
         serializer.save(owner_user_id=self.request.user.id)
 
 
-class ShowroomOrderListAPIView(BaseShowroomOrderMixin, generics.ListAPIView):
-    """API for showroom list orders."""
+class ShowroomOrderListCreateAPIView(BaseShowroomOrderMixin, generics.ListCreateAPIView):
+    """API for listing and creating showroom orders."""
+
+    def get_permissions(self):
+        """Allow only customers to create orders; showroom owners and customers can list."""
+        if self.request.method == "POST":
+            return [IsAuthenticated(), IsCustomer()]
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        """Save the showroom order with the requesting user as car buyer."""
+        serializer.save(showroom_id=self.showroom.id, car_buyer_id=self.request.user.id)
 
 
 class ShowroomOrderDetailAPIView(BaseShowroomOrderMixin, generics.RetrieveAPIView):
     """API for showroom detail orders."""
 
 
-class ShowroomOrderCreateAPIView(CarShowroomContextMixin, generics.CreateAPIView):
-    """API for creating showroom orders. Only UserType.CUSTOMER can create orders."""
+class ShowroomOrderConfirmAPIView(BaseShowroomOrderMixin, generics.GenericAPIView):
+    """Showroom owner confirms and completes a customer order."""
 
-    serializer_class = ShowroomOrderSerializer
-    permission_classes = (IsAuthenticated, IsCustomer)
+    permission_classes = (IsAuthenticated, IsShowroomOwner)
 
-    def perform_create(self, serializer):
-        """Save the showroom order with the requesting user as car buyer."""
-        serializer.save(showroom_id=self.showroom.id, car_buyer_id=self.request.user.id)
+    def post(self, request, *args, **kwargs):
+        """Complete the order by transferring funds and updating stock."""
+        order = self.get_object()
+        confirm_showroom_order(order)
+        return Response({"detail": "Order confirmed successfully."}, status=status.HTTP_200_OK)
+
+
+class ShowroomOrderRejectAPIView(BaseShowroomOrderMixin, generics.GenericAPIView):
+    """Showroom owner rejects a customer order."""
+
+    permission_classes = (IsAuthenticated, IsShowroomOwner)
+
+    def post(self, request, *args, **kwargs):
+        """Mark the order as rejected."""
+        order = self.get_object()
+        reject_order(order)
+        return Response({"detail": "Order rejected successfully."}, status=status.HTTP_200_OK)
+
+
+class ShowroomOrderCancelAPIView(BaseShowroomOrderMixin, generics.GenericAPIView):
+    """Allow a customer to cancel their own pending showroom order."""
+
+    permission_classes = (IsAuthenticated, IsOrderCarBuyer)
+
+    def post(self, request, *args, **kwargs):
+        """Mark the order as cancelled."""
+        order = self.get_object()
+        cancel_order(order)
+        return Response({"detail": "Order cancelled successfully."}, status=status.HTTP_200_OK)

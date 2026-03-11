@@ -76,3 +76,27 @@ class IsCustomer(BasePermission):
             return True
 
         return request.user.type == UserType.CUSTOMER
+
+
+class IsShowroomOwner(BasePermission):
+    """Allow only the showroom owner identified by the URL to perform the action."""
+
+    def has_permission(self, request, view):
+        """Allow HEAD/OPTIONS; require user to own the showroom from the URL."""
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+        return request.user.type == UserType.SHOWROOM and view.showroom.owner_user_id == request.user.id
+
+
+class IsOrderCarBuyer(BasePermission):
+    """Allow only the customer who placed the order to cancel it."""
+
+    def has_permission(self, request, view):
+        """Allow HEAD/OPTIONS; require CUSTOMER type."""
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+        return request.user.type == UserType.CUSTOMER
+
+    def has_object_permission(self, request, view, obj):
+        """Allow only the order's car buyer."""
+        return obj.car_buyer_id == request.user.id
