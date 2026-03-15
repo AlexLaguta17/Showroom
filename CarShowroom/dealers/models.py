@@ -1,11 +1,10 @@
+"""Models for the dealers app: Car, Provider, ProviderCar, ProviderOrder."""
+
 from datetime import date
 
 from django.db import models
-from djmoney.models.fields import MoneyField
-from django_countries.fields import CountryField
 from django.core.validators import MaxValueValidator, MinValueValidator
 
-from users.models import User
 from services.choices import (
     BodyType,
     UserType,
@@ -16,17 +15,11 @@ from services.choices import (
 
 
 class Car(models.Model):
-    """Model for description car"""
+    """Model describing a car with its technical characteristics."""
 
-    engine_type = models.CharField(
-        choices=EngineType.choices, max_length=8, default=EngineType.GASOLINE
-    )
-    transmission_type = models.CharField(
-        choices=TransmissionType.choices, max_length=9, default=TransmissionType.MANUAL
-    )
-    body_type = models.CharField(
-        choices=BodyType.choices, max_length=9, default=BodyType.SEDAN
-    )
+    engine_type = models.CharField(choices=EngineType.choices, max_length=8, default=EngineType.GASOLINE)
+    transmission_type = models.CharField(choices=TransmissionType.choices, max_length=9, default=TransmissionType.MANUAL)
+    body_type = models.CharField(choices=BodyType.choices, max_length=9, default=BodyType.SEDAN)
     brand = models.CharField(max_length=20)
     model = models.CharField(max_length=20)
     year = models.PositiveIntegerField(
@@ -36,16 +29,15 @@ class Car(models.Model):
         ]
     )
     color = models.CharField(null=True, max_length=30)
-    engine_volume = models.DecimalField(
-        max_digits=3, decimal_places=1, validators=[MinValueValidator(0.0)], default=0.0
-    )
+    engine_volume = models.DecimalField(max_digits=3, decimal_places=1, validators=[MinValueValidator(0)], default=0)
 
     def __str__(self):
+        """Return a string identifying the car by brand and model."""
         return f"{self.brand}-{self.model}"
 
 
 class Provider(models.Model):
-    """Provider model"""
+    """Model representing a car provider."""
 
     name = models.CharField(max_length=100)
     year_founded = models.PositiveIntegerField(
@@ -60,50 +52,49 @@ class Provider(models.Model):
     owner_user = models.OneToOneField(
         "users.User",
         on_delete=models.CASCADE,
-        limit_choices_to={"user_type": UserType.PROVIDER},
+        limit_choices_to={"type": UserType.PROVIDER},
     )
 
     def __str__(self):
-        return f"{self.name}"
+        """Return the provider name."""
+        return self.name
 
 
 class ProviderCar(models.Model):
-    """Model of provider's cars for selling"""
+    """Model of a provider's cars available for selling."""
 
     car = models.ForeignKey("Car", on_delete=models.CASCADE)
     provider = models.ForeignKey("Provider", on_delete=models.CASCADE)
-    discount = models.ForeignKey(
-        "car_showrooms.Discount", on_delete=models.SET_NULL, blank=True, null=True
-    )
-    car_quantity = models.IntegerField(default=0)
+    discount = models.ForeignKey("car_showrooms.Discount", on_delete=models.SET_NULL, blank=True, null=True)
+    car_quantity = models.PositiveIntegerField(default=0)
     price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
         null=True,
         blank=True,
     )
 
     def __str__(self):
+        """Return a string identifying this provider car entry."""
         return f"{self.provider}'s car: {self.car}"
 
 
 class ProviderOrder(models.Model):
-    """Model of orders to showrooms"""
+    """Model of showroom orders addressed to providers."""
 
     provider = models.ForeignKey("Provider", on_delete=models.CASCADE)
     showroom = models.ForeignKey("car_showrooms.CarShowroom", on_delete=models.CASCADE)
-    car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
-    order_status = models.CharField(
-        choices=OrderStatus.choices, max_length=8, default=OrderStatus.PENDING
-    )
+    car = models.ForeignKey("dealers.ProviderCar", on_delete=models.CASCADE)
+    status = models.CharField(choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING)
     car_quantity = models.PositiveIntegerField(default=1)
     sale_date = models.DateField(auto_now_add=True)
     total_price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
     )
 
     def __str__(self):
-        return f"{self.showroom} order: {self.car}, quantity: {self.car_quantity}, status: {self.order_status}"
+        """Return a string describing the order's showroom, car, quantity and status."""
+        return f"{self.showroom} order: {self.car}, quantity: {self.car_quantity}, status: {self.status}"

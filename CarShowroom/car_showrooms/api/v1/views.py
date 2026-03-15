@@ -1,72 +1,60 @@
-from rest_framework import viewsets
-from rest_framework.generics import get_object_or_404
+"""API views for the car_showrooms app."""
 
-from car_showrooms.models import Discount, CarShowroom, ShowroomCar, CarShowroomOrder
+from rest_framework import viewsets
+
+from car_showrooms.mixins import CarShowroomContextMixin
+from car_showrooms.models import Discount, CarShowroom, ShowroomCar
+from car_showrooms.permissions import (
+    IsDiscountOwner,
+    IsCarShowroomOwner,
+    IsShowroomCarOwner,
+)
 from car_showrooms.serializers import (
     DiscountSerializer,
     CarShowroomSerializer,
     ShowroomCarSerializer,
-    CarShowroomOrderSerializer,
 )
 
 
 class ShowroomViewSet(viewsets.ModelViewSet):
-    queryset = CarShowroom.objects.all()
+    """CRUD operations for car showrooms."""
+
+    queryset = CarShowroom.objects.prefetch_related("cars")
     serializer_class = CarShowroomSerializer
+    permission_classes = (IsCarShowroomOwner,)
 
-    def get_object(self):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        return get_object_or_404(self.get_queryset(), pk=showroom_pk)
+    def perform_create(self, serializer):
+        """Save the showroom with the requesting user as owner."""
+        serializer.save(owner_user_id=self.request.user.id)
 
 
-class ShowroomCarViewSet(viewsets.ModelViewSet):
+class ShowroomCarViewSet(CarShowroomContextMixin, viewsets.ModelViewSet):
+    """CRUD operations for cars belonging to a showroom."""
+
     serializer_class = ShowroomCarSerializer
+    permission_classes = (IsShowroomCarOwner,)
 
     def get_queryset(self):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        if showroom_pk is None:
-            return ShowroomCar.objects.none()
-        return ShowroomCar.objects.filter(showroom_id=showroom_pk)
-
-    def get_object(self):
-        car_pk = self.kwargs.get("car_pk")
-        return get_object_or_404(self.get_queryset(), pk=car_pk)
-
-    def perform_create(self, serializer):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        serializer.save(showroom_id=showroom_pk)
+        """Return all cars for the owner; return only published cars with stock for public."""
+        queryset = ShowroomCar.objects.filter(showroom_id=self.showroom.id).select_related(
+            "car", "discount", "showroom__owner_user"
+        )
+        user = self.request.user
+        if user.is_authenticated and self.showroom.owner_user_id == user.id:
+            return queryset
+        return queryset.filter(price__gt=0, car_quantity__gt=0, is_published=True)
 
 
-class ShowroomDiscountViewSet(viewsets.ModelViewSet):
+class ShowroomDiscountViewSet(CarShowroomContextMixin, viewsets.ModelViewSet):
+    """CRUD operations for discounts belonging to a showroom."""
+
     serializer_class = DiscountSerializer
+    permission_classes = (IsDiscountOwner,)
 
     def get_queryset(self):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        if showroom_pk is None:
-            return Discount.objects.none()
-        return Discount.objects.filter(showroomcar__showroom_id=showroom_pk)
-
-    def get_object(self):
-        discount_pk = self.kwargs.get("discount_pk")
-        return get_object_or_404(self.get_queryset(), pk=discount_pk)
+        """Return discounts owned by the showroom's owner user."""
+        return Discount.objects.filter(owner_user_id=self.showroom.owner_user_id)
 
     def perform_create(self, serializer):
-        serializer.save()
-
-
-class CarShowroomOrderViewSet(viewsets.ModelViewSet):
-    serializer_class = CarShowroomOrderSerializer
-
-    def get_queryset(self):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        if showroom_pk is None:
-            return CarShowroomOrder.objects.none()
-        return CarShowroomOrder.objects.filter(showroom_id=showroom_pk)
-
-    def get_object(self):
-        order_pk = self.kwargs.get("order_pk")
-        return get_object_or_404(self.get_queryset(), pk=order_pk)
-
-    def perform_create(self, serializer):
-        showroom_pk = self.kwargs.get("showroom_pk")
-        serializer.save(showroom_id=showroom_pk)
+        """Save the discount with the requesting user as owner."""
+        serializer.save(owner_user_id=self.request.user.id)
