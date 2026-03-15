@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "djmoney",
     "phonenumber_field",
     "debug_toolbar",
+    "drf_spectacular",
     "users.apps.UsersConfig",
     "dealers.apps.DealersConfig",
     "car_showrooms.apps.CarShowroomsConfig",
@@ -131,7 +132,8 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
-    )
+    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 
@@ -174,6 +176,12 @@ SIMPLE_JWT = {
     "CHECK_USER_IS_ACTIVE": True,
 }
 
+SPECTACULAR_SETTINGS = {
+    "TITLE": "CarShowroom API",
+    "DESCRIPTION": "Car Showroom project",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
 
 hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
 INTERNAL_IPS += [ip[:-1] + "1" for ip in ips]
