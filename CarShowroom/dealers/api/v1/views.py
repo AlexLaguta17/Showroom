@@ -143,8 +143,21 @@ class ProviderDiscountDetailAPIView(ProviderContextMixin, generics.RetrieveUpdat
         return Discount.objects.filter(owner_user_id=self.provider.owner_user_id)
 
 
-class ProviderOrderListAPIView(BaseProviderOrderMixin, generics.ListAPIView):
-    """List all orders for a provider."""
+class ProviderOrderListCreateAPIView(BaseProviderOrderMixin, generics.ListCreateAPIView):
+    """List all orders for a provider or create a new one."""
+
+    def get_permissions(self):
+        """Require showroom ownership for POST; use base permissions otherwise."""
+        if self.request.method == "POST":
+            return [IsAuthenticated(), IsShowroomOwnerUser()]
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        """Save the order linked to the current provider and the requesting showroom."""
+        serializer.save(
+            provider_id=self.provider.id,
+            showroom=self.request.user.carshowroom,
+        )
 
 
 class ProviderOrderDetailAPIView(BaseProviderOrderMixin, generics.RetrieveUpdateAPIView):
@@ -204,17 +217,3 @@ class ProviderOrderCancelAPIView(BaseProviderOrderMixin, generics.GenericAPIView
         order = self.get_object()
         cancel_order(order)
         return Response({"detail": "Order cancelled successfully."}, status=status.HTTP_200_OK)
-
-
-class ProviderOrderCreateAPIView(ProviderContextMixin, generics.CreateAPIView):
-    """Allow a showroom to place a new order with a provider."""
-
-    serializer_class = ProviderOrderSerializer
-    permission_classes = (IsAuthenticated, IsShowroomOwnerUser)
-
-    def perform_create(self, serializer):
-        """Save the order linked to the current provider and the requesting showroom."""
-        serializer.save(
-            provider_id=self.provider.id,
-            showroom=self.request.user.carshowroom,
-        )

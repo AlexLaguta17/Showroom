@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 
+from services.order_service import validate_showroom_order_creation
 from car_showrooms.models import Discount, CarShowroom, ShowroomCar, CarShowroomOrder
 
 
@@ -62,13 +63,13 @@ class ShowroomOrderSerializer(serializers.ModelSerializer):
 
         model = CarShowroomOrder
         fields = "id", "car", "car_buyer", "status", "price", "sale_date"
+        read_only_fields = "car_buyer", "status", "price", "sale_date"
 
+    def validate(self, attrs):
+        """Validate order creation: car quantity, car price, calculate order price with discount."""
+        showroom = self.context["view"].showroom
+        showroom_car = attrs["car"]
 
-class ShowroomOrderWriteSerializer(serializers.ModelSerializer):
-    """Serializer for creating a CarShowroomOrder."""
-
-    class Meta:
-        """ShowroomOrder write serializer metadata."""
-
-        model = CarShowroomOrder
-        fields = "id", "car"
+        price = validate_showroom_order_creation(showroom, showroom_car)
+        attrs["price"] = price
+        return attrs

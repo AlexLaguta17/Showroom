@@ -57,31 +57,46 @@ class IsDiscountOwner(BasePermission):
 
 
 class IsOrderViewer(BasePermission):
-    """Control order visibility.
-
-    GET access:
-    - Showroom owner: orders of his showroom
-    - Customer: only his orders
-    """
+    """Control order visibility."""
 
     def has_permission(self, request, view):
         """Block providers from accessing showroom orders entirely."""
-        if request.user.type == UserType.PROVIDER:
-            return False
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
 
-        return True
+        return request.user.type in (UserType.SHOWROOM, UserType.CUSTOMER)
 
-    def has_object_permission(self, request, view, obj):
-        """Restrict order detail access to the relevant showroom owner or customer."""
+
+class IsCustomer(BasePermission):
+    """Allow only to UserType.CUSTOMER."""
+
+    def has_permission(self, request, view):
+        """Allow customer access."""
         if request.method in SAFE_METHODS:
             return True
 
-        user = request.user
+        return request.user.type == UserType.CUSTOMER
 
-        if user.type == UserType.SHOWROOM:
-            return obj.showroom.owner_user.id == user.id
 
-        if user.type == UserType.CUSTOMER:
-            return obj.car_buyer.id == user.id
+class IsShowroomOwner(BasePermission):
+    """Allow only the showroom owner identified by the URL to perform the action."""
 
-        return False
+    def has_permission(self, request, view):
+        """Allow HEAD/OPTIONS; require user to own the showroom from the URL."""
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+        return request.user.type == UserType.SHOWROOM and view.showroom.owner_user_id == request.user.id
+
+
+class IsOrderCarBuyer(BasePermission):
+    """Allow only the customer who placed the order to cancel it."""
+
+    def has_permission(self, request, view):
+        """Allow HEAD/OPTIONS; require CUSTOMER type."""
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+        return request.user.type == UserType.CUSTOMER
+
+    def has_object_permission(self, request, view, obj):
+        """Allow only the order's car buyer."""
+        return obj.car_buyer_id == request.user.id
