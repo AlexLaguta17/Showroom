@@ -1,24 +1,102 @@
-from rest_framework import permissions
+"""Permission classes for the car_showrooms app."""
 
-from car_showrooms.models import CarShowroom
+from rest_framework.permissions import SAFE_METHODS, BasePermission
+
+from services.choices import UserType
+from car_showrooms.models import ShowroomCar
 
 
-class IsShowroomOwner(permissions.BasePermission):
-    """Check if user is the owner of a CarShowroom."""
+class IsCarShowroomOwner(BasePermission):
+    """Allow read access to anyone; restrict writes to showroom owners."""
 
     def has_permission(self, request, view):
-        """Check permissions at request level."""
-        if not request.user.is_authenticated:
-            return False
-        return request.user.type == "showroom"
+        """Allow safe methods; require SHOWROOM type for mutations."""
+        if request.method in SAFE_METHODS:
+            return True
+
+        return request.user.is_authenticated and request.user.type == UserType.SHOWROOM
 
     def has_object_permission(self, request, view, obj):
-        """Check permissions at object level."""
+        """Allow safe methods; restrict mutations to the object's owner."""
+        if request.method in SAFE_METHODS:
+            return True
 
-        if isinstance(obj, CarShowroom):
-            return obj.owner_user == request.user
+        return obj.owner_user.id == request.user.id
 
-        elif hasattr(obj, "showroom"):
-            return obj.showroom.owner_user == request.user
+
+class IsShowroomCarOwner(BasePermission):
+    """Allow read access to anyone; restrict mutations to the showroom owner."""
+
+    def has_object_permission(self, request, view, obj):
+        """Allow safe methods; restrict mutations to the car's showroom owner."""
+        if request.method in SAFE_METHODS:
+            return True
+
+        if isinstance(obj, ShowroomCar):
+            return obj.showroom.owner_user.id == request.user.id
 
         return False
+
+
+class IsDiscountOwner(BasePermission):
+    """Allow read access to anyone; restrict mutations to the discount owner."""
+
+    def has_permission(self, request, view):
+        """Allow safe methods; restrict mutations to the showroom owner."""
+        if request.method in SAFE_METHODS:
+            return True
+
+        return view.showroom.owner_user.id == request.user.id
+
+    def has_object_permission(self, request, view, obj):
+        """Allow safe methods; restrict mutations to the discount owner."""
+        if request.method in SAFE_METHODS:
+            return True
+
+        return obj.owner_user.id == request.user.id
+
+
+class IsOrderViewer(BasePermission):
+    """Control order visibility."""
+
+    def has_permission(self, request, view):
+        """Block providers from accessing showroom orders entirely."""
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+
+        return request.user.type in (UserType.SHOWROOM, UserType.CUSTOMER)
+
+
+class IsCustomer(BasePermission):
+    """Allow only to UserType.CUSTOMER."""
+
+    def has_permission(self, request, view):
+        """Allow customer access."""
+        if request.method in SAFE_METHODS:
+            return True
+
+        return request.user.type == UserType.CUSTOMER
+
+
+class IsShowroomOwner(BasePermission):
+    """Allow only the showroom owner identified by the URL to perform the action."""
+
+    def has_permission(self, request, view):
+        """Allow HEAD/OPTIONS; require user to own the showroom from the URL."""
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+        return request.user.type == UserType.SHOWROOM and view.showroom.owner_user_id == request.user.id
+
+
+class IsOrderCarBuyer(BasePermission):
+    """Allow only the customer who placed the order to cancel it."""
+
+    def has_permission(self, request, view):
+        """Allow HEAD/OPTIONS; require CUSTOMER type."""
+        if request.method in ("HEAD", "OPTIONS"):
+            return True
+        return request.user.type == UserType.CUSTOMER
+
+    def has_object_permission(self, request, view, obj):
+        """Allow only the order's car buyer."""
+        return obj.car_buyer_id == request.user.id

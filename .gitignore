@@ -171,3 +171,7 @@ cython_debug/
 /CarShowroom/.cursor/
 *.md
 /CarShowroom/schema.yml
+/CarShowroom/.claude/
+/CarShowroom/doc/
+/CarShowroom/.pre-commit-config.yaml
+/CarShowroom/static/

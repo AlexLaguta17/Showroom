@@ -1,34 +1,15 @@
+"""Models for the car_showrooms app: CarShowroom, Discount, ShowroomCar, CarShowroomOrder."""
+
 from datetime import date
 
 from django.db import models
-from django.utils import timezone
 from django.core.validators import MaxValueValidator, MinValueValidator
 
-from users.models import User
-from dealers.models import Car
 from services.choices import UserType, OrderStatus
 
 
-class Discount(models.Model):
-    """Model for description discount"""
-
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, null=True)
-    date_start = models.DateField(default=date.today)
-    date_end = models.DateField(blank=True, null=True)
-    percent = models.DecimalField(
-        max_digits=4,
-        decimal_places=2,
-        validators=[MinValueValidator(0.00), MaxValueValidator(100.00)],
-        default=0.0,
-    )
-
-    def __str__(self):
-        return f"{self.name}"
-
-
 class CarShowroom(models.Model):
-    """Model of car showroom"""
+    """Model of a car showroom."""
 
     name = models.CharField(max_length=100)
     cars = models.ManyToManyField("dealers.Car", through="ShowroomCar")
@@ -39,48 +20,75 @@ class CarShowroom(models.Model):
     )
 
     def __str__(self):
-        return f"{self.name}"
+        """Return the showroom name."""
+        return self.name
 
 
-class ShowroomCar(models.Model):
-    """Model of showroom's cars for selling"""
+class Discount(models.Model):
+    """Model describing a discount."""
 
-    car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
-    showroom = models.ForeignKey("CarShowroom", on_delete=models.CASCADE)
-    discount = models.ForeignKey(
-        "Discount", on_delete=models.SET_NULL, blank=True, null=True
-    )
-    car_quantity = models.IntegerField(default=0)
-    price = models.DecimalField(
-        max_digits=12,
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    date_start = models.DateField(default=date.today)
+    date_end = models.DateField(blank=True, null=True)
+    percent = models.DecimalField(
+        max_digits=4,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
-        default=0.0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        blank=False,
+        null=False,
+    )
+    owner_user = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        limit_choices_to={"type": (UserType.SHOWROOM, UserType.PROVIDER)},
+        related_name="discounts",
+        related_query_name="discount",
     )
 
     def __str__(self):
+        """Return the discount name."""
+        return self.name
+
+
+class ShowroomCar(models.Model):
+    """Model of a showroom's cars for selling."""
+
+    car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
+    showroom = models.ForeignKey("CarShowroom", on_delete=models.CASCADE)
+    discount = models.ForeignKey("Discount", on_delete=models.SET_NULL, blank=True, null=True)
+    car_quantity = models.PositiveIntegerField(default=0)
+    price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        default=0.0,
+    )
+    is_published = models.BooleanField(default=True)
+
+    def __str__(self):
+        """Return a string identifying the showroom car entry."""
         return f"{self.showroom}'s car: {self.car}"
 
 
 class CarShowroomOrder(models.Model):
-    """Model of orders to customers"""
+    """Model of orders from customers to a showroom."""
 
     showroom = models.ForeignKey("CarShowroom", on_delete=models.CASCADE)
     car_buyer = models.ForeignKey(
         "users.User",
         on_delete=models.CASCADE,
-        limit_choices_to={"type": UserType.SHOWROOM},
+        limit_choices_to={"type": UserType.CUSTOMER},
     )
-    car = models.ForeignKey("dealers.Car", on_delete=models.CASCADE)
-    status = models.CharField(
-        choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING
-    )
+    car = models.ForeignKey("ShowroomCar", on_delete=models.CASCADE)
+    status = models.CharField(choices=OrderStatus.choices, max_length=9, default=OrderStatus.PENDING)
     sale_date = models.DateField(auto_now_add=True)
     price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(0.00)],
+        validators=[MinValueValidator(0)],
     )
 
     def __str__(self):
+        """Return a string describing the customer order."""
         return f"{self.car_buyer} order: {self.car}, status: {self.status}"
