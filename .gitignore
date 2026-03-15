@@ -174,3 +174,4 @@ cython_debug/
 /CarShowroom/.claude/
 /CarShowroom/doc/
 /CarShowroom/.pre-commit-config.yaml
+/CarShowroom/static/
